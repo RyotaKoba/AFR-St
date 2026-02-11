@@ -79,6 +79,8 @@ def snip(args, model, tokenizer, device):
     it = iter(dataloader)
     for i in tqdm(range(args.nsamples), desc="snip"):
         inp, tar = next(it)
+        inp = inp.to("cuda:0")
+        tar = tar.to("cuda:0")
         model.zero_grad(set_to_none=True)
         outputs = model(inp)
         outputs = outputs.logits
