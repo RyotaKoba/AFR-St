@@ -181,7 +181,7 @@ def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
 P_SVD_loss = torch.zeros(1)
 def AFR(args, model, tokenizer, device):
     import gc
-    dataloader, _ = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
