@@ -407,12 +407,12 @@ def get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge'):
 
 # Function to select the appropriate loader based on dataset name
 def get_loaders(nsamples=128, seed=0, seqlen=2048, tokenizer=None):
-    # return get_wikitext2_local(nsamples, seed, seqlen, tokenizer)
+    return get_wikitext2_local(nsamples, seed, seqlen, tokenizer)
     # return get_mmlu(nsamples, seed, seqlen, tokenizer)
     # return get_hellaswag(nsamples, seed, seqlen, tokenizer)
     # return get_winogrande(nsamples, seed, seqlen, tokenizer)
     # return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge')
-    return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Easy')
+    # return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Easy')
 
 
 
