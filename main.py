@@ -112,10 +112,10 @@ def main():
     elif args.prune_method == "snip":
         init_data = model.state_dict()
         pruner.SCORE = snip(args, model, tokenizer, device)
-        del model
+        # del model
         torch.cuda.empty_cache()
-        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
-        pruner.SCORE = pruner.SCORE.half()
+        # model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
+        # pruner.SCORE = pruner.SCORE.half()
         gc.collect()
         model.load_state_dict(init_data)
         model.seqlen = 1024

@@ -97,14 +97,7 @@ def snip(args, model, tokenizer, device):
         score = [s.view(-1) for s in accum_score]
         score = torch.cat(score)
     print("score: ", len(score))
-    del accum_score
-    del rm_weights
-    del dataloader
-    del it
-    del outputs
-    del loss
-    del inp
-    del tar
+
     model.zero_grad()
     return score
 
