@@ -119,6 +119,8 @@ def snip(args, model, tokenizer, device):
         accum_score[k] = accum_score[k] >= threshold
         accum_score[k + num_layers] = accum_score[k + num_layers] >= threshold
         accum_score[k + num_layers * 2] = accum_score[k + num_layers * 2] >= threshold
+    print("Mask prepared.")
+    for k in range(num_layers):
         unstructured_compress(model.model.layers[k], [accum_score[k], accum_score[k + num_layers], accum_score[k + num_layers * 2]], device)
 
     model.zero_grad()
