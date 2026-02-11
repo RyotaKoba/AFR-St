@@ -99,7 +99,7 @@ def main():
     elif args.prune_method == "structured_afr":
         Structured_AFR(args, model, tokenizer, device)
     elif args.prune_method == "structured_afr_llava":
-        model = model.half()
+        model = model.to(torch.float16)
         Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor)
     elif args.prune_method == "refer_svd":
         init_data = model.state_dict()
