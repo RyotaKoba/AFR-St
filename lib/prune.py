@@ -109,8 +109,8 @@ def snip(args, model, tokenizer, device):
     rm_weights = None
     dataloader = None
     it = None
-    model = None
-    del inp, tar, outputs, loss, it, dataloader, rm_weights, model
+    # model = None
+    del inp, tar, outputs, loss, it, dataloader, rm_weights
     torch.cuda.empty_cache()
 
     score = torch.cat([s.view(-1) for s in accum_score])
@@ -122,21 +122,20 @@ def snip(args, model, tokenizer, device):
     del score
 
     print("go!")
-    mlp_mask = []
-    mlp_mask = (accum_score.t() >= threshold).t()
-    accum_score = None
-    del accum_score
+    # mlp_mask = []
+    # mlp_mask = (accum_score.t() >= threshold).t()
+    # accum_score = None
+    # del accum_score
 
     # # accum_score layout: gate(0..L-1), up(L..2L-1), down(2L..3L-1)
-    # for k in range(num_layers):
-    #     gate_mask = accum_score[k] >= threshold
-    #     up_mask = accum_score[k + num_layers] >= threshold
-    #     down_mask = accum_score[k + num_layers * 2] >= threshold
-    #     print("aaaaaaa")
-    model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float32,low_cpu_mem_usage=True,device_map="auto")
-    print("Mask prepared.")
     for k in range(num_layers):
-        unstructured_compress(model.model.layers[k], [mlp_mask[k],mlp_mask[k+num_layers],mlp_mask[k+num_layers*2]], device)
+        gate_mask = accum_score[k] >= threshold
+        up_mask = accum_score[k + num_layers] >= threshold
+        down_mask = accum_score[k + num_layers * 2] >= threshold
+        unstructured_compress(model.model.layers[k], [gate_mask,up_mask,down_mask], device)
+    #     print("aaaaaaa")
+    # model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,low_cpu_mem_usage=True,device_map="auto")
+    print("Mask prepared.")
     model.zero_grad()
 
 def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
