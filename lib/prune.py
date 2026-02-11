@@ -114,11 +114,10 @@ def snip(args, model, tokenizer, device):
     torch.cuda.empty_cache()
 
     score = torch.cat([s.view(-1) for s in accum_score])
-    score = score.half()
     print("score: ", score.shape)
 
-    score, _ = torch.sort(score, descending=True)
-    threshold = score[int(score.shape[0] * (1 - args.pruning_ratio))]
+    k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
+    threshold = torch.kthvalue(score, k).values
     score = None
     del score
 
