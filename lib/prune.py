@@ -106,20 +106,20 @@ def snip(args, model, tokenizer, device):
     rm_weights = None
     dataloader = None
     del inp, tar, outputs, loss, it, dataloader, rm_weights
+    model.eval()
     model.half()
+    model.zero_grad()
     torch.cuda.empty_cache()
 
-    score = torch.sort(torch.cat([s.view(-1) for s in accum_score]), descending=True)
+    score = torch.cat([s.view(-1) for s in accum_score])
+    score.half()
     print("score: ", score.shape)
 
-    # score, _ = torch.sort(score, descending=True)
+    score, _ = torch.sort(score, descending=True)
     threshold = score[int(score.shape[0] * (1 - args.pruning_ratio))]
     score = None
     del score
 
-    model.zero_grad()
-    torch.cuda.empty_cache()
-    model.eval()
     print("go!")
     # mlp_mask = []
     # mlp_mask = (accum_score.t() >= threshold).t()
