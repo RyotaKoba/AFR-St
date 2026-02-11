@@ -286,7 +286,7 @@ def ReFer_SVD(args, model, tokenizer, device):
         if output is None:
             return
 
-        output = output.reshape(output.size(0), -1).to(dtype=torch.float32)
+        output = output.reshape(output.size(0), -1).to(dtype=torch.float32, device="cpu")
         S = torch.linalg.svdvals(output)
         singular_value_mean = S.mean().to("cpu", dtype=torch.float32)
         SVD_loss = SVD_loss + singular_value_mean
