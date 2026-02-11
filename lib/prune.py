@@ -69,7 +69,7 @@ def compress_vision(layer, mlp_mask, device):
     torch.cuda.empty_cache()
 
 def snip(args, model, tokenizer, device):
-    dataloader, _ = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader= get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
 
@@ -247,7 +247,7 @@ def AFR(args, model, tokenizer, device):
 
 SVD_loss = torch.zeros(1)
 def ReFer_SVD(args, model, tokenizer, device):
-    dataloader, _ = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
 
