@@ -29,7 +29,7 @@ def get_llm_gpu(args):
     else:
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            torch_dtype=torch.float16い,
+            torch_dtype=torch.float32,
             # dtype=torch.float32,
             # cache_dir=args.cache_dir,
             low_cpu_mem_usage=True,
