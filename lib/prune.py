@@ -40,6 +40,14 @@ class Pruner(prune.BasePruningMethod):
 
         return mask
 
+def unstructured_compress(layer, weight_mask, device):
+    gate_mask, up_mask, down_mask = [m.to(device) for m in weight_mask]
+    with torch.no_grad():
+        layer.mlp.gate_proj.weight.data.mul_(gate_mask)
+        layer.mlp.up_proj.weight.data.mul_(up_mask)
+        layer.mlp.down_proj.weight.data.mul_(down_mask)
+    torch.cuda.empty_cache()
+
 def compress(layer, mlp_mask, device):
     mlp_mask = mlp_mask.to(device)
 
@@ -69,9 +77,10 @@ def compress_vision(layer, mlp_mask, device):
     torch.cuda.empty_cache()
 
 def snip(args, model, tokenizer, device):
-    dataloader= get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader, _ = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
+    num_layers = len(model.model.layers)
 
     with torch.no_grad():
         accum_score = [torch.zeros_like(w).to("cpu") for w in rm_weights]
@@ -93,13 +102,22 @@ def snip(args, model, tokenizer, device):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
         del grads
 
-    with torch.no_grad():
-        score = [s.view(-1) for s in accum_score]
-        score = torch.cat(score)
-    print("score: ", len(score))
+    score = torch.cat([s.view(-1) for s in accum_score])
+    print("score: ", score.shape)
+
+    sorted_score, _ = torch.sort(score, descending=True)
+    threshold = sorted_score[int(sorted_score.shape[0] * (1 - args.pruning_ratio))]
 
     model.zero_grad()
-    return score
+
+    # accum_score layout: gate(0..L-1), up(L..2L-1), down(2L..3L-1)
+    for k in range(num_layers):
+        gate_mask = accum_score[k] >= threshold
+        up_mask   = accum_score[k + num_layers] >= threshold
+        down_mask = accum_score[k + num_layers * 2] >= threshold
+        unstructured_compress(model.model.layers[k], [gate_mask, up_mask, down_mask], device)
+
+    model.zero_grad()
 
 def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
     dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)

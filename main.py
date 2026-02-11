@@ -29,7 +29,7 @@ def get_llm_gpu(args):
     else:
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.float16い,
             # dtype=torch.float32,
             # cache_dir=args.cache_dir,
             low_cpu_mem_usage=True,
@@ -110,19 +110,7 @@ def main():
         pruner.SCORE = pruner.SCORE.float()
         pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
     elif args.prune_method == "snip":
-        init_data = model.state_dict()
-        pruner.SCORE = snip(args, model, tokenizer, device)
-        # del model
-        # model = model.half()
-        # pruner.SCORE = pruner.SCORE.half()
-        torch.cuda.empty_cache()
-        # model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
-        # pruner.SCORE = pruner.SCORE.half()
-        gc.collect()
-        model.load_state_dict(init_data)
-        model.seqlen = 1024
-        rm_module = rm_modules(model)
-        pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
+        snip(args, model, tokenizer, device)
     elif args.prune_method == "afr":
         init_data = model.state_dict()
         pruner.SCORE = AFR(args, model, tokenizer, device)
@@ -133,12 +121,12 @@ def main():
         pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
 
     if args.save_model and args.prune_method != "none" and args.prune_method != "done":
-        if args.prune_method != "structured_snip" and args.prune_method != "structured_refer_svd" and args.prune_method != "structured_afr" and args.prune_method != "structured_afr_llava":
-            for module in model.modules():
-                if isinstance(module, LlamaMLP):
-                    prunee.remove(module.gate_proj, 'weight')
-                    prunee.remove(module.up_proj, 'weight')
-                    prunee.remove(module.down_proj, 'weight')
+        # if args.prune_method != "structured_snip" and args.prune_method != "structured_refer_svd" and args.prune_method != "structured_afr" and args.prune_method != "structured_afr_llava":
+        #     for module in model.modules():
+        #         if isinstance(module, LlamaMLP):
+        #             prunee.remove(module.gate_proj, 'weight')
+        #             prunee.remove(module.up_proj, 'weight')
+        #             prunee.remove(module.down_proj, 'weight')
         if not os.path.exists(args.save_model):
             os.makedirs(args.save_model)
 
