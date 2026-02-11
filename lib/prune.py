@@ -3,43 +3,12 @@ import torch.nn as nn
 from .data import get_loaders, get_mm_loaders
 from tqdm import tqdm
 import sys
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from .model import rm_modules, get_vision_rm_modules
 from .gmm import gmm_edge_outlier_removal, select_K_by_bic
 from .gesd import gesd_outlier_cleaning_torch
 from .kde import kde_edge_outlier_removal
 from .dpm import dpm_edge_outlier_removal
 from .bmm import bmm_edge_outlier_removal
-
-import torch.nn.utils.prune as prune
-
-SCORE = None
-
-class Pruner(prune.BasePruningMethod):
-    PRUNING_TYPE = 'unstructured'
-
-    def __init__(self, amount):
-        prune._validate_pruning_amount_init(amount)
-        self.amount = amount
-
-    def compute_mask(self, t, default_mask):
-        tensor_size = t.nelement()
-        print("amount:",self.amount)
-        nparams_toprune = prune._compute_nparams_toprune(self.amount, tensor_size)
-        prune._validate_pruning_amount(nparams_toprune, tensor_size)
-
-        print('number of parameters:', tensor_size)
-        print('number of parameters to prune:', nparams_toprune)
-
-        mask = default_mask.clone(memory_format=torch.contiguous_format)
-
-        global SCORE
-        print(SCORE.shape)
-        if nparams_toprune != 0:
-            topk = torch.topk(SCORE, k=nparams_toprune, largest=False)
-            mask.view(-1)[topk.indices] = 0
-
-        return mask
 
 def unstructured_compress(layer, weight_mask, device):
     gate_mask, up_mask, down_mask = [m.to(device) for m in weight_mask]
@@ -78,7 +47,7 @@ def compress_vision(layer, mlp_mask, device):
     torch.cuda.empty_cache()
 
 def snip(args, model, tokenizer, device):
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
@@ -124,7 +93,7 @@ def snip(args, model, tokenizer, device):
     model.zero_grad()
 
 def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
@@ -181,7 +150,7 @@ def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
 P_SVD_loss = torch.zeros(1)
 def AFR(args, model, tokenizer, device):
     import gc
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
@@ -251,7 +220,6 @@ def AFR(args, model, tokenizer, device):
     gc.collect()
     torch.cuda.empty_cache()
 
-    # グローバル統計でFO+SNIPを標準化して合算 → score 1本に集約
     shapes = [s.shape for s in fo_accum]
     sizes  = [s.numel() for s in fo_accum]
     fo_flat   = torch.cat([s.view(-1) for s in fo_accum]).float();   del fo_accum
@@ -279,7 +247,7 @@ def AFR(args, model, tokenizer, device):
 
 SVD_loss = torch.zeros(1)
 def ReFer_SVD(args, model, tokenizer, device):
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     del rm_module
@@ -351,7 +319,7 @@ def ReFer_SVD(args, model, tokenizer, device):
 
 SVD_loss = torch.zeros(1)
 def Structured_ReFer_SVD(args, model, tokenizer, device):
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
@@ -437,7 +405,7 @@ def Structured_ReFer_SVD(args, model, tokenizer, device):
     torch.cuda.empty_cache()
 
 def Structured_AFR(args, model, tokenizer, device):
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
 
     def calculate_neuron_score(W_metric):
         # ============================================================
@@ -587,11 +555,7 @@ def Structured_AFR(args, model, tokenizer, device):
     fo_score = torch.stack(list(fo_score.values()), dim=0)
     snip_score = torch.stack(list(snip_score.values()), dim=0)
 
-    del inputs
-    del W_down
-    del W_up
-    del W_gate
-    del W_metric
+    del inputs, W_down, W_up, W_gate, W_metric
 
     fo_score_standardized = (fo_score - fo_score.mean()) / fo_score.std()
     snip_score_standardized = (snip_score - snip_score.mean()) / snip_score.std()
@@ -847,8 +811,7 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
         hook.remove()
     P_SVD_loss = torch.zeros(1)
     P_SVD_loss_vision = torch.zeros(1)
-    del P_SVD_loss
-    del P_SVD_loss_vision
+    del P_SVD_loss, P_SVD_loss_vision
     model.zero_grad()
     for i in range(num_layers):
         snip_score[i] = snip_score[i]*snip_score[i]
@@ -858,11 +821,7 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
     fo_score_vision = torch.stack(list(fo_score_vision.values()), dim=0)
     # snip_score_vision = torch.stack(list(snip_score_vision.values()), dim=0)
 
-    del inputs
-    del W_down
-    del W_up
-    del W_gate
-    del W_metric
+    del inputs, W_down, W_up, W_gate, W_metric
     torch.cuda.empty_cache()
 
     fo_score_standardized = (fo_score - fo_score.mean()) / fo_score.std()

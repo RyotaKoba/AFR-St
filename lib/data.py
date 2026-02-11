@@ -406,13 +406,21 @@ def get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge'):
     return trainloader
 
 # Function to select the appropriate loader based on dataset name
-def get_loaders(nsamples=128, seed=0, seqlen=2048, tokenizer=None):
-    return get_wikitext2_local(nsamples, seed, seqlen, tokenizer)
-    # return get_mmlu(nsamples, seed, seqlen, tokenizer)
-    # return get_hellaswag(nsamples, seed, seqlen, tokenizer)
-    # return get_winogrande(nsamples, seed, seqlen, tokenizer)
-    # return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge')
-    # return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Easy')
+def get_loaders(nsamples=128, seed=0, seqlen=2048, tokenizer=None, dataset='wikitext2_local'):
+    if dataset == 'wikitext2_local':
+        return get_wikitext2_local(nsamples, seed, seqlen, tokenizer)
+    elif dataset == 'mmlu':
+        return get_mmlu(nsamples, seed, seqlen, tokenizer)
+    elif dataset == 'hellaswag':
+        return get_hellaswag(nsamples, seed, seqlen, tokenizer)
+    elif dataset == 'winogrande':
+        return get_winogrande(nsamples, seed, seqlen, tokenizer)
+    elif dataset == 'arc_challenge':
+        return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge')
+    elif dataset == 'arc_easy':
+        return get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Easy')
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}. Choose from: wikitext2_local, wikitext2, mmlu, hellaswag, winogrande, arc_challenge, arc_easy")
 
 
 

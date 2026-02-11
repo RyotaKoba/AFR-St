@@ -7,14 +7,8 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from importlib.metadata import version
-
 from lib.prune import ReFer_SVD, snip, AFR, structured_snip, Structured_ReFer_SVD, Structured_AFR, Structured_AFR_LLaVA
-import lib.prune as pruner
-from lib.model import rm_modules
-import torch.nn.utils.prune as prunee
-from transformers.models.llama.modeling_llama import LlamaMLP
 from lib.builder import load_pretrained_model
-
 
 print('torch', version('torch'))  # 2.1.0
 print('transformers', version('transformers'))
@@ -30,7 +24,6 @@ def get_llm_gpu(args):
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
             torch_dtype=torch.float32,
-            # dtype=torch.float32,
             # cache_dir=args.cache_dir,
             low_cpu_mem_usage=True,
             device_map="auto",
@@ -52,7 +45,7 @@ def get_llm_cpu(args):
     )
     print("Model loaded on CPU")
     model.seqlen = 1024
-    device = torch.device("cuda:0")
+    device = torch.device("cpu")
     model.eval()
     print(f"args.model: {args.model}")
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
@@ -64,9 +57,9 @@ def main():
     parser.add_argument('--seed', type=int, default=0, help='Seed for sampling the calibration data.')
     parser.add_argument('--nsamples', type=int, default=128, help='Number of calibration samples.')
 
-    parser.add_argument('--cuda_friendly', action="store_true")
     parser.add_argument('--pruning_ratio', type=float, default=0, help='Pruning ratio.')
     parser.add_argument("--prune_method", type=str, default="structured_afr", choices=["refer_svd","snip","structured_snip","structured_refer_svd","structured_afr","afr","structured_afr_llava"])
+    parser.add_argument("--dataset", type=str, default="wikitext2_local", choices=["wikitext2_local","mmlu","hellaswag","winogrande","arc_challenge","arc_easy"])
     parser.add_argument("--cache_dir", default="llm_weights", type=str)
 
     parser.add_argument('--cuda', action="store_true")
@@ -109,17 +102,10 @@ def main():
     elif args.prune_method == "afr":
         AFR(args, model, tokenizer, device)
 
-    if args.save_model and args.prune_method != "none" and args.prune_method != "done":
-        # if args.prune_method != "structured_snip" and args.prune_method != "structured_refer_svd" and args.prune_method != "structured_afr" and args.prune_method != "structured_afr_llava":
-        #     for module in model.modules():
-        #         if isinstance(module, LlamaMLP):
-        #             prunee.remove(module.gate_proj, 'weight')
-        #             prunee.remove(module.up_proj, 'weight')
-        #             prunee.remove(module.down_proj, 'weight')
+    if args.save_model:
         if not os.path.exists(args.save_model):
             os.makedirs(args.save_model)
 
-        # intermediate_sizes = [layer.mlp.gate_proj.out_features for layer in model.model.layers]
         if args.global_pruning:
             save_name = os.path.join(args.save_model, f"model.bin")
             torch.save({'model': model, 'tokenizer': tokenizer,}, save_name)
@@ -127,7 +113,6 @@ def main():
             for layer in model.model.layers:
                 interm_size = layer.mlp.gate_proj.out_features
                 break
-            # configを更新
             model.config.intermediate_size = interm_size
             model.save_pretrained(args.save_model)
             tokenizer.save_pretrained(args.save_model)
