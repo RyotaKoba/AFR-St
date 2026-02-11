@@ -84,12 +84,12 @@ def main():
 
     # Prune the model
     print("pruning starts")
-    
+
     if args.cuda:
         model, tokenizer, device, image_processor = get_llm_gpu(args)
     else:
         model, tokenizer, device, image_processor = get_llm_cpu(args)
-    
+
     print(f"loading llm model {args.model}, pruning method: {args.prune_method}")
 
     if args.prune_method == "structured_snip":
@@ -107,13 +107,7 @@ def main():
         torch.cuda.empty_cache()
         snip(args, model, tokenizer, device)
     elif args.prune_method == "afr":
-        init_data = model.state_dict()
-        pruner.SCORE = AFR(args, model, tokenizer, device)
-        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
-        model.load_state_dict(init_data)
-        model.seqlen = 1024
-        rm_module = rm_modules(model)
-        pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
+        AFR(args, model, tokenizer, device)
 
     if args.save_model and args.prune_method != "none" and args.prune_method != "done":
         # if args.prune_method != "structured_snip" and args.prune_method != "structured_refer_svd" and args.prune_method != "structured_afr" and args.prune_method != "structured_afr_llava":

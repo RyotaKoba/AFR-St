@@ -180,12 +180,16 @@ def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
 
 P_SVD_loss = torch.zeros(1)
 def AFR(args, model, tokenizer, device):
-    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    import gc
+    dataloader, _ = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
+    num_layers = len(model.model.layers)
+    del rm_module
 
     global P_SVD_loss
-    P_SVD_loss = torch.zeros(1, requires_grad=True)
+    P_SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+
     def store_feature(module, input, output):
         global P_SVD_loss
         if hasattr(output, 'last_hidden_state'):
@@ -196,75 +200,82 @@ def AFR(args, model, tokenizer, device):
             output = output[0]
         if output is None:
             return
-
         output = output.reshape(output.size(0), -1).to(dtype=torch.float32, device="cpu")
         S = torch.linalg.svdvals(output)
-        singular_value_mean = S.mean().to("cpu",dtype=torch.float32)
+        singular_value_mean = S.mean().to("cpu", dtype=torch.float32)
         P_SVD_loss = P_SVD_loss + singular_value_mean
 
     hooks = []
     for name, module in model.named_modules():
-        hook = module.register_forward_hook(store_feature)
-        hooks.append(hook)
+        if any(x in name for x in ['gate_proj', 'up_proj', 'down_proj']):
+            hooks.append(module.register_forward_hook(store_feature))
 
     with torch.no_grad():
-        fo_grads = [torch.zeros_like(w) for w in rm_weights]
+        fo_accum   = [torch.zeros_like(w).to("cpu").half() for w in rm_weights]
+        snip_accum = [torch.zeros_like(w).to("cpu").half() for w in rm_weights]
 
-    for i, (inputs, targets) in enumerate(dataloader):
-        inputs = inputs.to("cuda:0")
+    it = iter(dataloader)
+    for i in tqdm(range(args.nsamples), desc="AFR"):
+        inputs, targets = next(it)
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
+        inputs  = inputs.to("cuda:0")
         targets = targets.to("cuda:0")
         outputs = model(inputs)
-        break
-    del inputs
-    del dataloader
 
-    fo_grads = list(torch.autograd.grad(P_SVD_loss, rm_weights,retain_graph=True))
+        if torch.isnan(P_SVD_loss).any().item() or torch.isinf(P_SVD_loss).any().item():
+            print(f"P_SVD_loss contains nan or inf: sample {i}")
+
+        fo_grads = list(torch.autograd.grad(P_SVD_loss, rm_weights, retain_graph=True))
+        with torch.no_grad():
+            for k, (weight, grad) in enumerate(zip(rm_weights, fo_grads)):
+                fo_accum[k] += (weight.cpu() * grad.cpu()).abs().half()
+        P_SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+        del fo_grads
+
+        outputs = outputs.logits
+        outputs = outputs.reshape(-1, outputs.shape[-1]).to(dtype=torch.float32)
+        targets = targets.reshape(-1).to(dtype=torch.long, device="cuda:0")
+        loss = nn.CrossEntropyLoss()(outputs, targets)
+        snip_grads = list(torch.autograd.grad(loss, rm_weights))
+        with torch.no_grad():
+            for k, (weight, grad) in enumerate(zip(rm_weights, snip_grads)):
+                snip_accum[k] += (weight.cpu() * grad.cpu()).abs().half()
+        del snip_grads, outputs, targets, loss
+
     for hook in hooks:
         hook.remove()
-    
-    P_SVD_loss = torch.zeros(1)
-    del hook
-    # FOスコアの計算
-    print("before calc fo_score")
-    with torch.no_grad():
-        fo_score = [(weight * grad).view(-1).abs() for weight, grad in zip(rm_weights, fo_grads)]
-        fo_score = torch.cat(fo_score)
-    print("after calc fo_score")
-    del fo_grads
-    import gc
+    del inputs, it, dataloader, rm_weights
+    model.zero_grad(set_to_none=True)
+    model = model.to(torch.float16)
     gc.collect()
     torch.cuda.empty_cache()
 
-    outputs = outputs.logits
-    outputs = outputs.reshape(-1, outputs.shape[-1])
-    targets = targets.reshape(-1)
-    loss = nn.CrossEntropyLoss()(outputs, targets) # CE Loss
-    del outputs
-    del targets
-    with torch.no_grad():
-        snip_grads = [torch.zeros_like(w) for w in rm_weights]
-    snip_grads = list(torch.autograd.grad(loss, rm_weights))
-    del loss
-    gc.collect()
-    torch.cuda.empty_cache()
-    with torch.no_grad():
-        snip_score = [(weight * grad).view(-1).abs() for weight, grad in zip(rm_weights, snip_grads)]
-        snip_score = torch.cat(snip_score)
-    del snip_grads
-    fo_score_standardized = (fo_score - fo_score.mean()) / fo_score.std()
-    snip_score_standardized = (snip_score - snip_score.mean()) / snip_score.std()
-    score = fo_score_standardized + snip_score_standardized
-    model.zero_grad()  # 勾配をリセット
-    del P_SVD_loss  # グローバル変数をリセット
-    del fo_score_standardized
-    del snip_score_standardized
-    del fo_score
-    del snip_score
-    del rm_module
-    del rm_weights
-    gc.collect()
-    P_SVD_loss = torch.zeros(1)  # グローバル変数の再初期化
-    return score  # スコアを返す
+    # グローバル統計でFO+SNIPを標準化して合算 → score 1本に集約
+    shapes = [s.shape for s in fo_accum]
+    sizes  = [s.numel() for s in fo_accum]
+    fo_flat   = torch.cat([s.view(-1) for s in fo_accum]).float();   del fo_accum
+    snip_flat = torch.cat([s.view(-1) for s in snip_accum]).float(); del snip_accum
+    fo_std   = (fo_flat   - fo_flat.mean())   / fo_flat.std();   del fo_flat
+    snip_std = (snip_flat - snip_flat.mean()) / snip_flat.std(); del snip_flat
+    score = fo_std + snip_std
+    del fo_std, snip_std
+
+    k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
+    threshold = torch.kthvalue(score, k).values
+
+    splits = torch.split(score, sizes)
+    del score
+
+    for kk in range(num_layers):
+        gate_mask = splits[kk].reshape(shapes[kk]) >= threshold
+        up_mask   = splits[kk + num_layers].reshape(shapes[kk + num_layers]) >= threshold
+        down_mask = splits[kk + num_layers * 2].reshape(shapes[kk + num_layers * 2]) >= threshold
+        unstructured_compress(model.model.layers[kk], [gate_mask, up_mask, down_mask], device)
+
+    model.zero_grad()
+    P_SVD_loss = torch.zeros(1)
+    del P_SVD_loss
 
 SVD_loss = torch.zeros(1)
 def ReFer_SVD(args, model, tokenizer, device):
@@ -602,7 +613,6 @@ def Structured_AFR(args, model, tokenizer, device):
         compress(model.model.layers[idx], mlp_mask[idx], device)
 
     model.zero_grad()  # 勾配をリセット
-
 
 def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
     dataloader = get_mm_loaders()
