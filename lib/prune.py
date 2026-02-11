@@ -109,7 +109,7 @@ def snip(args, model, tokenizer, device):
     it = None
     del inp, tar, outputs, loss, it, dataloader, rm_weights
     model.eval()
-    model = model.half()
+    # model = model.half()
     model.zero_grad()
     torch.cuda.empty_cache()
 
