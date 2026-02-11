@@ -103,7 +103,7 @@ def main():
         init_data = model.state_dict()
         device = torch.cuda.device_count()
         pruner.SCORE = ReFer_SVD(args, model, tokenizer,device)
-        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float32,cache_dir=args.cache_dir,device_map=None)
+        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map=None)
         model.load_state_dict(init_data)
         model.seqlen = 1024
         rm_module = rm_modules(model)
@@ -113,11 +113,11 @@ def main():
         init_data = model.state_dict()
         device = torch.cuda.device_count()
         pruner.SCORE = snip(args, model, tokenizer, device)
-        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float32,cache_dir=args.cache_dir,device_map=None)
+        del model
+        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map=None)
         model.load_state_dict(init_data)
         model.seqlen = 1024
         rm_module = rm_modules(model)
-        pruner.SCORE = pruner.SCORE.float()
         pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
     elif args.prune_method == "afr":
         init_data = model.state_dict()
