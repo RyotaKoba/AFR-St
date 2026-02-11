@@ -106,6 +106,7 @@ def snip(args, model, tokenizer, device):
     rm_weights = None
     dataloader = None
     del inp, tar, outputs, loss, it, dataloader, rm_weights
+    model.half()
     torch.cuda.empty_cache()
 
     score = torch.cat([s.view(-1) for s in accum_score])
