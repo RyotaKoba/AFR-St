@@ -88,6 +88,7 @@ def snip(args, model, tokenizer, device):
         tar = tar.reshape(-1)
         loss = nn.CrossEntropyLoss()(outputs, tar)
         grads = list(torch.autograd.grad(loss, rm_weights))
+        grads = [grad.to("cuda:0") for grad in grads]
         with torch.no_grad():
             for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
