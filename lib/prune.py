@@ -102,6 +102,7 @@ def snip(args, model, tokenizer, device):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
         del grads
     del inp, tar, outputs, loss
+    torch.cuda.empty_cache()
 
     score = torch.cat([s.view(-1) for s in accum_score])
     print("score: ", score.shape)
@@ -111,13 +112,14 @@ def snip(args, model, tokenizer, device):
     del score, sorted_score
 
     model.zero_grad()
+    torch.cuda.empty_cache()
 
     # accum_score layout: gate(0..L-1), up(L..2L-1), down(2L..3L-1)
     for k in range(num_layers):
-        gate_mask = accum_score[k] >= threshold
-        up_mask   = accum_score[k + num_layers] >= threshold
-        down_mask = accum_score[k + num_layers * 2] >= threshold
-        unstructured_compress(model.model.layers[k], [gate_mask, up_mask, down_mask], device)
+        accum_score[k] = accum_score[k] >= threshold
+        accum_score[k + num_layers] = accum_score[k + num_layers] >= threshold
+        accum_score[k + num_layers * 2] = accum_score[k + num_layers * 2] >= threshold
+        unstructured_compress(model.model.layers[k], [accum_score[k], accum_score[k + num_layers], accum_score[k + num_layers * 2]], device)
 
     model.zero_grad()
 
