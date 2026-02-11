@@ -384,33 +384,25 @@ def get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge'):
     trainloader = []
     for idx in indices:
         item = dataset[idx]
-        
+
         # ARC形式: question + choices -> answerKey
         question = item['question']
         choices = item['choices']
-        answer_key = item['answerKey']  # "A", "B", "C", "D", or "1", "2", "3", "4"
-        
-        # プロンプト構築
+        answer_key = item['answerKey']
+
         prompt = f"Question: {question}\n"
-        
-        # choicesは{'text': [...], 'label': [...]}の形式
         choice_texts = choices['text']
         choice_labels = choices['label']
-        
+
         for label, text in zip(choice_labels, choice_texts):
             prompt += f"{label}. {text}\n"
         prompt += "Answer:"
-        
-        # トークナイズ
-        inp = tokenizer(prompt, return_tensors='pt', 
+        inp = tokenizer(prompt, return_tensors='pt',
                        truncation=True, max_length=seqlen).input_ids
-        
-        # ターゲット生成(最後のトークン以外をマスク)
         tar = inp.clone()
         tar[:, :-1] = -100
-        
         trainloader.append((inp, tar))
-    
+
     return trainloader
 
 # Function to select the appropriate loader based on dataset name
