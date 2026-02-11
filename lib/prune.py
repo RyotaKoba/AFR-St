@@ -310,7 +310,7 @@ def ReFer_SVD(args, model, tokenizer, device):
         grads = list(torch.autograd.grad(SVD_loss, rm_weights))
         with torch.no_grad():
             for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
-                accum_score[k] += (weight.cpu() * grad.cpu()).abs()
+                accum_score[k] += (weight.cpu() * grad.cpu()).abs().half()
         SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
         del grads
     del inputs, it, dataloader, rm_weights
