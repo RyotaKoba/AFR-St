@@ -315,6 +315,8 @@ def ReFer_SVD(args, model, tokenizer, device):
 
     for hook in hooks:
         hook.remove()
+    model = model.to(torch.float16)
+    torch.cuda.empty_cache()
 
     num_layers = len(model.model.layers)
     score = torch.cat([s.view(-1) for s in accum_score])
