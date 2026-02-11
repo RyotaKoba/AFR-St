@@ -2,6 +2,7 @@ import sys
 import argparse
 import os
 import numpy as np
+import gc
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
@@ -112,8 +113,9 @@ def main():
         init_data = model.state_dict()
         pruner.SCORE = snip(args, model, tokenizer, device)
         del model
-        torch.cuda.empty_cache()
         model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
+        torch.cuda.empty_cache()
+        gc.collect()
         model.load_state_dict(init_data)
         model.seqlen = 1024
         rm_module = rm_modules(model)
