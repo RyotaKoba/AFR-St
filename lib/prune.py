@@ -101,11 +101,12 @@ def snip(args, model, tokenizer, device):
         grads = list(torch.autograd.grad(loss, rm_weights))
         with torch.no_grad():
             for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
-                accum_score[k] += (weight.cpu() * grad.cpu()).abs()
+                accum_score[k] += (weight.cpu() * grad.cpu()).abs().half()
         grads = None
         del grads
     rm_weights = None
     dataloader = None
+    it = None
     del inp, tar, outputs, loss, it, dataloader, rm_weights
     model.eval()
     model = model.half()
