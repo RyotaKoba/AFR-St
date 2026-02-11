@@ -292,8 +292,9 @@ def ReFer_SVD(args, model, tokenizer, device):
         SVD_loss = SVD_loss + singular_value_mean
 
     hooks = []
-    for _, module in model.named_modules():
-        hooks.append(module.register_forward_hook(store_feature))
+    for name, module in model.named_modules():
+        if any(x in name for x in ['gate_proj', 'up_proj', 'down_proj']):
+            hooks.append(module.register_forward_hook(store_feature))
 
     with torch.no_grad():
         accum_score = [torch.zeros_like(w).to("cpu") for w in rm_weights]
