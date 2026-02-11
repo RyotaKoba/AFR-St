@@ -102,17 +102,18 @@ def snip(args, model, tokenizer, device):
         with torch.no_grad():
             for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
+        grads = None
         del grads
     rm_weights = None
     dataloader = None
     del inp, tar, outputs, loss, it, dataloader, rm_weights
     model.eval()
-    model.half()
+    model = model.half()
     model.zero_grad()
     torch.cuda.empty_cache()
 
     score = torch.cat([s.view(-1) for s in accum_score])
-    score.half()
+    score = score.half()
     print("score: ", score.shape)
 
     score, _ = torch.sort(score, descending=True)
