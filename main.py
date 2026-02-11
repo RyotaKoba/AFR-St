@@ -101,7 +101,6 @@ def main():
         Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor)
     elif args.prune_method == "refer_svd":
         init_data = model.state_dict()
-        device = torch.cuda.device_count()
         pruner.SCORE = ReFer_SVD(args, model, tokenizer,device)
         model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map=None)
         model.load_state_dict(init_data)
@@ -111,9 +110,9 @@ def main():
         pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
     elif args.prune_method == "snip":
         init_data = model.state_dict()
-        device = torch.cuda.device_count()
         pruner.SCORE = snip(args, model, tokenizer, device)
         del model
+        torch.cuda.empty_cache()
         model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map=None)
         model.load_state_dict(init_data)
         model.seqlen = 1024
@@ -121,7 +120,6 @@ def main():
         pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
     elif args.prune_method == "afr":
         init_data = model.state_dict()
-        device = torch.cuda.device_count()
         pruner.SCORE = AFR(args, model, tokenizer, device)
         model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
         model.load_state_dict(init_data)
