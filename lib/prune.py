@@ -81,6 +81,7 @@ def snip(args, model, tokenizer, device):
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
+    del rm_module
 
     with torch.no_grad():
         accum_score = [torch.zeros_like(w).to("cpu") for w in rm_weights]
@@ -114,15 +115,20 @@ def snip(args, model, tokenizer, device):
     model.zero_grad()
     torch.cuda.empty_cache()
     model.eval()
+    mlp_mask = []
+    mlp_mask = (accum_score.t() >= threshold).t()
+    del accum_score
 
-    # accum_score layout: gate(0..L-1), up(L..2L-1), down(2L..3L-1)
-    for k in range(num_layers):
-        accum_score[k] = accum_score[k] >= threshold
-        accum_score[k + num_layers] = accum_score[k + num_layers] >= threshold
-        accum_score[k + num_layers * 2] = accum_score[k + num_layers * 2] >= threshold
+    # # accum_score layout: gate(0..L-1), up(L..2L-1), down(2L..3L-1)
+    # for k in range(num_layers):
+    #     accum_score[k] = accum_score[k] >= threshold
+    
+    # for k in range(num_layers):
+    #     accum_score[k + num_layers] = accum_score[k + num_layers] >= threshold
+    #     accum_score[k + num_layers * 2] = accum_score[k + num_layers * 2] >= threshold
     print("Mask prepared.")
     for k in range(num_layers):
-        unstructured_compress(model.model.layers[k], [accum_score[k], accum_score[k + num_layers], accum_score[k + num_layers * 2]], device)
+        unstructured_compress(model.model.layers[k], [mlp_mask[k], mlp_mask[k + num_layers], mlp_mask[k + num_layers * 2]], device)
 
     model.zero_grad()
 
