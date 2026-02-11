@@ -271,6 +271,7 @@ def ReFer_SVD(args, model, tokenizer, device):
     dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
+    del rm_module
 
     global SVD_loss
     SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
@@ -312,6 +313,7 @@ def ReFer_SVD(args, model, tokenizer, device):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
         SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
         del grads
+    del inputs, it, dataloader, rm_weights
 
     for hook in hooks:
         hook.remove()
