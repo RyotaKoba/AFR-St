@@ -74,7 +74,7 @@ def snip(args, model, tokenizer, device):
     rm_weights = [module.weight for module, _ in rm_module]
 
     with torch.no_grad():
-        accum_score = [torch.zeros_like(w) for w in rm_weights].to("cpu")
+        accum_score = [torch.zeros_like(w).to("cpu") for w in rm_weights]
 
     it = iter(dataloader)
     for i in tqdm(range(args.nsamples), desc="snip"):
@@ -106,9 +106,8 @@ def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
     rm_weights = [module.weight for module, _ in rm_module]
 
     for i, (inp, tar) in enumerate(dataloader):
-        # inp = inp.to(device)
-        # tar = tar.to(device)
         inp = inp.to("cuda:0")
+        tar = tar.to("cuda:0")
         outputs = model(inp)
         outputs = outputs.logits
         outputs = outputs.reshape(-1, outputs.shape[-1])
