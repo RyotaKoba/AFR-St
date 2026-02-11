@@ -298,7 +298,7 @@ def ReFer_SVD(args, model, tokenizer, device):
             hooks.append(module.register_forward_hook(store_feature))
 
     with torch.no_grad():
-        accum_score = [torch.zeros_like(w).to("cpu") for w in rm_weights]
+        accum_score = [torch.zeros_like(w).to("cpu").half() for w in rm_weights]
 
     it = iter(dataloader)
     for i in tqdm(range(args.nsamples), desc="ReFer_SVD"):
@@ -317,6 +317,7 @@ def ReFer_SVD(args, model, tokenizer, device):
 
     for hook in hooks:
         hook.remove()
+    model.zero_grad(set_to_none=True)
     model = model.to(torch.float16)
     torch.cuda.empty_cache()
 
