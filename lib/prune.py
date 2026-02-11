@@ -121,6 +121,7 @@ def snip(args, model, tokenizer, device):
     model.zero_grad()
     torch.cuda.empty_cache()
     model.eval()
+    print("go!")
     # mlp_mask = []
     # mlp_mask = (accum_score.t() >= threshold).t()
     # del accum_score
