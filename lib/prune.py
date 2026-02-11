@@ -81,6 +81,7 @@ def snip(args, model, tokenizer, device):
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
     num_layers = len(model.model.layers)
+    rm_module = None
     del rm_module
 
     with torch.no_grad():
@@ -102,7 +103,7 @@ def snip(args, model, tokenizer, device):
             for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
         del grads
-    del inp, tar, outputs, loss
+    del inp, tar, outputs, loss, it, dataloader, rm_weights
     torch.cuda.empty_cache()
 
     score = torch.cat([s.view(-1) for s in accum_score])
