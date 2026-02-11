@@ -29,7 +29,7 @@ def get_llm_gpu(args):
     else:
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            torch_dtype=torch.float32,
+            torch_dtype=torch.float16,
             # dtype=torch.float32,
             # cache_dir=args.cache_dir,
             low_cpu_mem_usage=True,
@@ -113,8 +113,8 @@ def main():
         init_data = model.state_dict()
         pruner.SCORE = snip(args, model, tokenizer, device)
         # del model
-        model = model.half()
-        pruner.SCORE = pruner.SCORE.half()
+        # model = model.half()
+        # pruner.SCORE = pruner.SCORE.half()
         torch.cuda.empty_cache()
         # model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
         # pruner.SCORE = pruner.SCORE.half()
