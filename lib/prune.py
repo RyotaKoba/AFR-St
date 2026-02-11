@@ -127,58 +127,55 @@ def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
     dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
+    num_layers = len(model.model.layers)
+    snip_score = {}
 
-    for i, (inp, tar) in enumerate(dataloader):
+    it = iter(dataloader)
+    for i in tqdm(range(args.nsamples), desc="structured_snip"):
+        inp, tar = next(it)
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
         inp = inp.to("cuda:0")
         tar = tar.to("cuda:0")
         outputs = model(inp)
         outputs = outputs.logits
-        outputs = outputs.reshape(-1, outputs.shape[-1])
-        tar = tar.reshape(-1)
-        tar = tar.to("cuda:0")
+        outputs = outputs.reshape(-1, outputs.shape[-1]).to(dtype=torch.float32)
+        tar = tar.reshape(-1).to(dtype=torch.long, device="cuda:0")
         loss = nn.CrossEntropyLoss()(outputs, tar)
         grads = list(torch.autograd.grad(loss, rm_weights))
-        break
+        with torch.no_grad():
+            for k in range(num_layers):
+                W_down = rm_weights[k+num_layers*2] * grads[k+num_layers*2]
+                W_up = (rm_weights[k+num_layers] * grads[k+num_layers]).t()
+                W_gate = (rm_weights[k] * grads[k]).t()
+                W_metric = W_down + W_up + W_gate
+                W_metric = W_metric.mean(axis=0).abs()
+                if i == 0 and k == 0:
+                    for m in range(num_layers):
+                        snip_score[m] = torch.zeros_like(W_metric)
+                snip_score[k].add_(W_metric)
+        del grads
 
-    layers = model.model.layers
-
-    mlp_metric_list = []
-    mlp_mask = []
-
-    for i in tqdm(range(len(layers)), desc="Processing layers"):
-        W_down = rm_weights[i+64] * grads[i+64]
-        W_up = (rm_weights[i+32] * grads[i+32]).t()
-        W_gate = (rm_weights[i] * grads[i]).t()
-        W_metric = W_down + W_up + W_gate
-        W_metric = W_metric.mean(axis=0)
-        mlp_metric_list.append(W_metric)
-        print("W_metric:",W_metric)
-    print("mlp_metric_list: ", mlp_metric_list[0])
-    mlp_metric = torch.stack(mlp_metric_list)
-    print("mlp_metric: ", mlp_metric.shape)
-
-    sorted_mlp_metric, _ = torch.sort(mlp_metric, descending=True)#flat
-    # sorted_mlp_metric, _ = torch.sort(mlp_metric.view(-1), descending=True)#uneven
-    # limit = sorted_mlp_metric[int(sorted_mlp_metric.shape[0]*(1-args.pruning_ratio))]#uneven
-    # thresholds = torch.tensor([limit for i in range(len(layers))])#uneven
-
-    thresholds = torch.tensor([sorted_mlp_metric[i][int(sorted_mlp_metric.shape[1]*(1-args.pruning_ratio))] for i in range(len(layers))])#flat
-    print(f"thresholds: {thresholds}")
-    print(thresholds.shape)
-    thresholds = thresholds.to(mlp_metric.device)
-
-    mlp_mask = (mlp_metric.t() >= thresholds).t()
-
-    print('*'*30)
-    for idx in range(len(layers)):
-        if f"model.layers.{i}" in getattr(model, 'hf_device_map', {}):
-            compress(model.model.layers[idx], mlp_mask[idx], model.hf_device_map[f"model.layers.{idx}"])
-        else:
-            compress(model.model.layers[idx], mlp_mask[idx], device)
-
-    print('*'*30)
     model.zero_grad()
 
+    score = torch.stack(list(snip_score.values()), dim=0).to("cpu")
+    print("score: ", score.shape)
+
+    if args.global_pruning:
+        sorted_score, _ = torch.sort(score.view(-1), descending=True)
+        limit = sorted_score[int(sorted_score.shape[0] * (1 - args.pruning_ratio))]
+        thresholds = torch.tensor([limit for _ in range(num_layers)])
+    else:
+        sorted_score, _ = torch.sort(score, descending=True)
+        thresholds = torch.tensor([sorted_score[i][int(sorted_score.shape[1] * (1 - args.pruning_ratio))] for i in range(num_layers)])
+    mlp_mask = (score.t() >= thresholds).t()
+
+    print('*'*30)
+    for idx in range(num_layers):
+        compress(model.model.layers[idx], mlp_mask[idx], device)
+    print('*'*30)
+
+    model.zero_grad()
     torch.cuda.empty_cache()
 
 P_SVD_loss = torch.zeros(1)
@@ -276,6 +273,8 @@ def ReFer_SVD(args, model, tokenizer, device):
     rm_weights = [module.weight for module, _ in rm_module]
 
     global SVD_loss
+    SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+
     def store_feature(module, input, output):
         global SVD_loss
         if hasattr(output, 'last_hidden_state'):
@@ -287,53 +286,58 @@ def ReFer_SVD(args, model, tokenizer, device):
         if output is None:
             return
 
-        output = output.reshape(output.size(0), -1)  # バッチサイズ次元以外をフラットにする
-        U, S, Vh = torch.svd(output)  # SVDを計算
-        singular_value_mean = S.mean()
+        output = output.reshape(output.size(0), -1).to(dtype=torch.float32)
+        S = torch.linalg.svdvals(output)
+        singular_value_mean = S.mean().to("cpu", dtype=torch.float32)
         SVD_loss = SVD_loss + singular_value_mean
 
+    hooks = []
     for _, module in model.named_modules():
-        module.register_forward_hook(store_feature)
+        hooks.append(module.register_forward_hook(store_feature))
 
     with torch.no_grad():
-        grads = [torch.zeros_like(w) for w in rm_weights]
+        accum_score = [torch.zeros_like(w).to("cpu") for w in rm_weights]
 
-    for i, (inputs, targets) in enumerate(dataloader):
-        outputs = model(inputs)
+    it = iter(dataloader)
+    for i in tqdm(range(args.nsamples), desc="ReFer_SVD"):
+        inputs, _ = next(it)
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
+        inputs = inputs.to("cuda:0")
+        _ = model(inputs)
         grads = list(torch.autograd.grad(SVD_loss, rm_weights))
-        break
+        with torch.no_grad():
+            for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
+                accum_score[k] += (weight.cpu() * grad.cpu()).abs()
+        SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+        del grads
 
-    with torch.no_grad():
-        score = [(weight.cpu() * grad.cpu()).view(-1).abs() for weight, grad in zip(rm_weights, grads)]
-        score = torch.cat(score)
+    for hook in hooks:
+        hook.remove()
+
+    num_layers = len(model.model.layers)
+    score = torch.cat([s.view(-1) for s in accum_score])
+    print("score: ", score.shape)
+
+    k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
+    threshold = torch.kthvalue(score, k).values
+    score = None
+    del score
+
+    for k in range(num_layers):
+        gate_mask = accum_score[k] >= threshold
+        up_mask   = accum_score[k + num_layers] >= threshold
+        down_mask = accum_score[k + num_layers * 2] >= threshold
+        unstructured_compress(model.model.layers[k], [gate_mask, up_mask, down_mask], device)
 
     model.zero_grad()
-    loss = torch.zeros(1)
-
-    return score
 
 SVD_loss = torch.zeros(1)
 def Structured_ReFer_SVD(args, model, tokenizer, device):
-    dataloader= get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
     rm_module = rm_modules(model)
     rm_weights = [module.weight for module, _ in rm_module]
-
-    def calculate_neuron_score_v2(W_metric):
-        """
-        方法2: Signal-to-Noise比的なアプローチ
-        平均の絶対値 / (標準偏差 + epsilon)
-        """
-
-        """トリム平均を使用してニューロンスコアを計算"""
-        trim_percent = 2
-        sorted_W, _ = torch.sort(W_metric, dim=0)
-        n_rows = W_metric.shape[0]  # 4096
-        trim_count = int(n_rows * trim_percent / 100)
-        trimmed_W = sorted_W[trim_count:-trim_count, :]
-        mean_scores = trimmed_W.mean(axis=0)
-        std_scores = trimmed_W.std(axis=0)
-        snr_scores = torch.abs(mean_scores) / (std_scores + 1e-8)
-        return snr_scores
+    num_layers = len(model.model.layers)
 
     global SVD_loss
     SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
@@ -350,62 +354,69 @@ def Structured_ReFer_SVD(args, model, tokenizer, device):
             return
 
         output = output.reshape(output.size(0), -1).to(dtype=torch.float32)
-        U, S, Vh = torch.svd(output)  # SVDを計算
-        singular_value_mean = S.mean().to("cpu",dtype=torch.float32)
+        U, S, Vh = torch.svd(output)
+        singular_value_mean = S.mean().to("cpu", dtype=torch.float32)
         SVD_loss = SVD_loss + singular_value_mean
 
     hooks = []
     for name, module in model.named_modules():
         hook = module.register_forward_hook(store_feature)
-        hooks.append(hook) 
+        hooks.append(hook)
 
-    with torch.no_grad():
-        grads = [torch.zeros_like(w) for w in rm_weights]
+    svd_score = {}
 
-    for i, (inputs, targets) in enumerate(dataloader):
+    it = iter(dataloader)
+    for i in tqdm(range(args.nsamples), desc="Structured_ReFer_SVD"):
+        inputs, targets = next(it)
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
+        inputs = inputs.to("cuda:0")
         outputs = model(inputs)
-        break
 
-    grads = list(torch.autograd.grad(SVD_loss, rm_weights))
-    for i, grad in enumerate(grads):
-        has_inf = torch.isinf(grad).any().item()
-        has_nan = torch.isnan(grad).any().item()
-        if has_inf or has_nan:
-            print(f"fo_grads[{i}] contains inf or nan")
-        else:
-            print(f"fo_grads[{i}] is clean")
+        if torch.isnan(SVD_loss).any().item() or torch.isinf(SVD_loss).any().item():
+            print(f"SVD_loss contains nan or inf: sample {i}")
+
+        grads = list(torch.autograd.grad(SVD_loss, rm_weights))
+        for k, grad in enumerate(grads):
+            if torch.isinf(grad).any().item() or torch.isnan(grad).any().item():
+                print(f"grads[{k}] contains inf or nan")
+        with torch.no_grad():
+            for k in range(num_layers):
+                W_down = rm_weights[k+num_layers*2] * grads[k+num_layers*2]
+                W_up = (rm_weights[k+num_layers] * grads[k+num_layers]).t()
+                W_gate = (rm_weights[k] * grads[k]).t()
+                W_metric = W_down + W_up + W_gate
+                W_metric = W_metric.mean(axis=0).abs()
+                if i == 0 and k == 0:
+                    for m in range(num_layers):
+                        svd_score[m] = torch.zeros_like(W_metric)
+                svd_score[k].add_(W_metric.cpu())
+        SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+        del grads
+
     for hook in hooks:
         hook.remove()
-    P_SVD_loss = torch.zeros(1)
-    layers = model.model.layers
-    mlp_metric_list = []
-    mlp_mask = []
-    with torch.no_grad():
-        for i in tqdm(range(len(layers)),desc="Processing layers"):
-            W_down = rm_weights[i+64] * grads[i+64]
-            W_up = (rm_weights[i+32] * grads[i+32]).t()
-            W_gate = (rm_weights[i] * grads[i]).t()
-            W_metric = W_down + W_up + W_gate
-            print(f"SVD_W_metric {i} have NaN:", torch.isnan(W_metric).any().item())
-            print(f"SVD_W_metric {i} have inf:", torch.isinf(W_metric).any().item())
-            W_metric = calculate_neuron_score_v2(W_metric)
-            # W_metric = W_metric.mean(axis=0)
-            mlp_metric_list.append(W_metric.cpu())
-    mlp_metric = torch.stack(mlp_metric_list)
-    print("score contains nan:", torch.isnan(mlp_metric).any().item())
-    print("score contains inf:", torch.isinf(mlp_metric).any().item())
-    sorted_mlp_metric, _ = torch.sort(mlp_metric, descending=True)#flat
-    # sorted_mlp_metric, _ = torch.sort(mlp_metric.view(-1), descending=True)#uneven
-    # limit = sorted_mlp_metric[int(sorted_mlp_metric.shape[0]*(1-args.pruning_ratio))]#uneven
-    # thresholds = torch.tensor([limit for i in range(len(layers))])#uneven
-    thresholds = torch.tensor([sorted_mlp_metric[i][int(sorted_mlp_metric.shape[1]*(1-args.pruning_ratio))] for i in range(len(layers))])#flat
-    mlp_mask = (mlp_metric.t() >= thresholds).t()
+    model.zero_grad()
+
+    score = torch.stack(list(svd_score.values()), dim=0)
+    print("score contains nan:", torch.isnan(score).any().item())
+    print("score contains inf:", torch.isinf(score).any().item())
+
+    if args.global_pruning:
+        sorted_score, _ = torch.sort(score.view(-1), descending=True)
+        limit = sorted_score[int(sorted_score.shape[0] * (1 - args.pruning_ratio))]
+        thresholds = torch.tensor([limit for _ in range(num_layers)])
+    else:
+        sorted_score, _ = torch.sort(score, descending=True)
+        thresholds = torch.tensor([sorted_score[i][int(sorted_score.shape[1] * (1 - args.pruning_ratio))] for i in range(num_layers)])
+    mlp_mask = (score.t() >= thresholds).t()
 
     print('*'*30)
-    for idx in range(len(layers)):
+    for idx in range(num_layers):
         compress(model.model.layers[idx], mlp_mask[idx], device)
-
     print('*'*30)
+
+    model.zero_grad()
     torch.cuda.empty_cache()
 
 def Structured_AFR(args, model, tokenizer, device):
