@@ -99,7 +99,6 @@ def main():
     elif args.prune_method == "structured_afr":
         Structured_AFR(args, model, tokenizer, device)
     elif args.prune_method == "structured_afr_llava":
-        model = model.to(torch.float16)
         Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor)
     elif args.prune_method == "refer_svd":
         init_data = model.state_dict()
@@ -111,6 +110,8 @@ def main():
         pruner.SCORE = pruner.SCORE.float()
         pruner.prune.global_unstructured(rm_module, pruning_method=pruner.Pruner, amount=args.pruning_ratio)
     elif args.prune_method == "snip":
+        model = model.to(torch.float16)
+        torch.cuda.empty_cache()
         snip(args, model, tokenizer, device)
     elif args.prune_method == "afr":
         init_data = model.state_dict()
