@@ -113,6 +113,7 @@ def snip(args, model, tokenizer, device):
 
     model.zero_grad()
     torch.cuda.empty_cache()
+    model.eval()
 
     # accum_score layout: gate(0..L-1), up(L..2L-1), down(2L..3L-1)
     for k in range(num_layers):
