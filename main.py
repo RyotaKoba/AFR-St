@@ -113,7 +113,7 @@ def main():
         pruner.SCORE = snip(args, model, tokenizer, device)
         del model
         torch.cuda.empty_cache()
-        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map=None)
+        model = AutoModelForCausalLM.from_pretrained(args.model,torch_dtype=torch.float16,cache_dir=args.cache_dir,device_map="auto")
         model.load_state_dict(init_data)
         model.seqlen = 1024
         rm_module = rm_modules(model)
