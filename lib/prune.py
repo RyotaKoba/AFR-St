@@ -543,13 +543,11 @@ def Structured_AFR(args, model, tokenizer, device):
                 W_gate = (rm_weights[k] * fo_grads[k]).t()
                 W_metric = W_down + W_up + W_gate
                 W_metric = calculate_neuron_score(W_metric)
-                W_metric = W_metric.mean(axis=0)
                 if i == 0 and k == 0:
                     print("Initial Setting")
                     for m in range(num_layers):
                         fo_score[m] = torch.zeros_like(W_metric)
                         snip_score[m] = torch.zeros_like(W_metric)
-                W_metric = torch.abs(W_metric)
                 has_inf = torch.isinf(W_metric).any().item()
                 has_nan = torch.isnan(W_metric).any().item()
                 if has_inf or has_nan:
