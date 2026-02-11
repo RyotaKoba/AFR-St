@@ -101,12 +101,14 @@ def snip(args, model, tokenizer, device):
             for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
                 accum_score[k] += (weight.cpu() * grad.cpu()).abs()
         del grads
+    del inp, tar, outputs, loss
 
     score = torch.cat([s.view(-1) for s in accum_score])
     print("score: ", score.shape)
 
     sorted_score, _ = torch.sort(score, descending=True)
     threshold = sorted_score[int(sorted_score.shape[0] * (1 - args.pruning_ratio))]
+    del score, sorted_score
 
     model.zero_grad()
 
