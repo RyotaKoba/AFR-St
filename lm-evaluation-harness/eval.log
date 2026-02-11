@@ -1,0 +1,2 @@
+Loading pruned model from checkpoint: ../pruned_model/Vicuna-13B/AFR-St_0.5p_MeanAbs_trimmed2p_global/model.bin
+Successfully loaded pruned model from ../pruned_model/Vicuna-13B/AFR-St_0.5p_MeanAbs_trimmed2p_global/model.bin
