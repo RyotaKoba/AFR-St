@@ -395,7 +395,7 @@ def Structured_ReFer_SVD(args, model, tokenizer, device):
                 W_metric = W_metric.mean(axis=0).abs()
                 if i == 0 and k == 0:
                     for m in range(num_layers):
-                        svd_score[m] = torch.zeros_like(W_metric)
+                        svd_score[m] = torch.zeros_like(W_metric).to("cpu")
                 svd_score[k].add_(W_metric.cpu())
         SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
         del grads
