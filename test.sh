@@ -3,7 +3,7 @@ lm-eval \
 --model hf \
 --batch_size 64 \
 --model_args device_map=auto,dtype=float16,pretrained=./pruned_model/hoge \
---task winogrande,hellaswag,arc_easy,arc_challenge,mmlu \
+--task winogrande\
 
 ######### model.bin format ###############
 # lm-eval \
