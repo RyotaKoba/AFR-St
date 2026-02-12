@@ -22,7 +22,7 @@ LLaMAやLLaVAなどのLLMに対して、キャリブレーションデータを�
 
 | パッケージ   | バージョン  |
 | ------------ | ----------- |
-| Python       | 3.x         |
+| Python       | 3.12        |
 | torch        | 2.9.1+cu130 |
 | transformers | 4.57.1      |
 | accelerate   | 1.7.0       |
@@ -41,7 +41,7 @@ CUDA: 13.0（`nvidia-cuda-runtime 13.0.48`）
 
 ## インストール
 
-評価まで行うツールは、リポジトリ内のフォルダをeditable installしてください：
+評価のツールは、一部カスタムしてあるのでリポジトリ内のフォルダをeditable installしてください：
 
 ```bash
 pip install -e ./lm-evaluation-harness
