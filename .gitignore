@@ -2,3 +2,5 @@
 .local/
 .cache/
 .config/
+.python-history
+.bash_history
