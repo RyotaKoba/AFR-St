@@ -222,15 +222,37 @@ def AFR(args, model, tokenizer, device):
 
     shapes = [s.shape for s in fo_accum]
     sizes  = [s.numel() for s in fo_accum]
+
+    # --- [DEBUG] fo_accum / snip_accum の統計 ---
+    fo_cat_debug   = torch.cat([s.view(-1).float() for s in fo_accum])
+    snip_cat_debug = torch.cat([s.view(-1).float() for s in snip_accum])
+    print(f"[AFR DEBUG] fo_accum   : min={fo_cat_debug.min():.4e}, max={fo_cat_debug.max():.4e}, mean={fo_cat_debug.mean():.4e}, std={fo_cat_debug.std():.4e}")
+    print(f"[AFR DEBUG] snip_accum : min={snip_cat_debug.min():.4e}, max={snip_cat_debug.max():.4e}, mean={snip_cat_debug.mean():.4e}, std={snip_cat_debug.std():.4e}")
+    del fo_cat_debug, snip_cat_debug
+
     fo_flat   = torch.cat([s.view(-1) for s in fo_accum]).float();   del fo_accum
     snip_flat = torch.cat([s.view(-1) for s in snip_accum]).float(); del snip_accum
+
+    # --- [DEBUG] 標準化前の統計 ---
+    print(f"[AFR DEBUG] fo_flat    : min={fo_flat.min():.4e}, max={fo_flat.max():.4e}, mean={fo_flat.mean():.4e}, std={fo_flat.std():.4e}")
+    print(f"[AFR DEBUG] snip_flat  : min={snip_flat.min():.4e}, max={snip_flat.max():.4e}, mean={snip_flat.mean():.4e}, std={snip_flat.std():.4e}")
+
     fo_std   = (fo_flat   - fo_flat.mean())   / fo_flat.std();   del fo_flat
     snip_std = (snip_flat - snip_flat.mean()) / snip_flat.std(); del snip_flat
+
+    # --- [DEBUG] 標準化後の統計 ---
+    print(f"[AFR DEBUG] fo_std     : min={fo_std.min():.4e}, max={fo_std.max():.4e}, mean={fo_std.mean():.4e}, std={fo_std.std():.4e}")
+    print(f"[AFR DEBUG] snip_std   : min={snip_std.min():.4e}, max={snip_std.max():.4e}, mean={snip_std.mean():.4e}, std={snip_std.std():.4e}")
+
     score = fo_std + snip_std
     del fo_std, snip_std
 
+    # --- [DEBUG] score の統計とthreshold ---
+    print(f"[AFR DEBUG] score      : min={score.min():.4e}, max={score.max():.4e}, mean={score.mean():.4e}, std={score.std():.4e}")
     k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
     threshold = torch.kthvalue(score, k).values
+    actual_sparsity = (score < threshold).float().mean().item()
+    print(f"[AFR DEBUG] threshold={threshold:.4e}, actual_sparsity={actual_sparsity*100:.2f}%  (target={args.pruning_ratio*100:.1f}%)")
 
     splits = torch.split(score, sizes)
     del score
@@ -239,6 +261,12 @@ def AFR(args, model, tokenizer, device):
         gate_mask = splits[kk].reshape(shapes[kk]) >= threshold
         up_mask   = splits[kk + num_layers].reshape(shapes[kk + num_layers]) >= threshold
         down_mask = splits[kk + num_layers * 2].reshape(shapes[kk + num_layers * 2]) >= threshold
+        # --- [DEBUG] 各層のマスク密度（最初と最後の層のみ表示）---
+        if kk == 0 or kk == num_layers - 1:
+            g_density = gate_mask.float().mean().item()
+            u_density = up_mask.float().mean().item()
+            d_density = down_mask.float().mean().item()
+            print(f"[AFR DEBUG] layer {kk:2d} mask density: gate={g_density:.3f}, up={u_density:.3f}, down={d_density:.3f}")
         unstructured_compress(model.model.layers[kk], [gate_mask, up_mask, down_mask], device)
 
     model.zero_grad()
