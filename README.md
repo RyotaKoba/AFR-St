@@ -66,7 +66,8 @@ pip install -e ./lmms-eval
 │   ├── gmm.py           # 混合ガウスモデルによるスコア処理
 │   ├── kde.py           # カーネル密度推定によるスコア処理
 │   └── gesd.py          # GESDによる外れ値除去
-└── data_local/          # ローカルデータセットキャッシュ（任意）
+└── data_local/          # ローカルデータセット
+
 ```
 
 ## 使い方
