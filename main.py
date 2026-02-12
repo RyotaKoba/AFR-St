@@ -2,7 +2,6 @@ import sys
 import argparse
 import os
 import numpy as np
-import gc
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
@@ -10,7 +9,7 @@ from importlib.metadata import version
 from lib.prune import ReFer_SVD, snip, AFR, structured_snip, Structured_ReFer_SVD, Structured_AFR, Structured_AFR_LLaVA
 from lib.builder import load_pretrained_model
 
-print('torch', version('torch'))  # 2.1.0
+print('torch', version('torch'))
 print('transformers', version('transformers'))
 print('accelerate', version('accelerate'))
 print('# of gpus: ', torch.cuda.device_count())
