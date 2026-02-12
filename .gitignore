@@ -5,3 +5,4 @@
 .python_history
 .bash_history
 data_local/llava/
+pruned_model/
