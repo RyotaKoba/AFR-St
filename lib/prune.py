@@ -180,8 +180,8 @@ def AFR(args, model, tokenizer, device):
             hooks.append(module.register_forward_hook(store_feature))
 
     with torch.no_grad():
-        fo_accum   = [torch.zeros_like(w).to("cpu").half() for w in rm_weights]
-        snip_accum = [torch.zeros_like(w).to("cpu").half() for w in rm_weights]
+        fo_accum   = [torch.zeros_like(w).to("cpu") for w in rm_weights]
+        snip_accum = [torch.zeros_like(w).to("cpu") for w in rm_weights]
 
     it = iter(dataloader)
     for i in tqdm(range(args.nsamples), desc="AFR"):
