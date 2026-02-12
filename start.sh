@@ -5,7 +5,7 @@ model="meta-llama/Meta-Llama-3-8B"
 
 CUDA_LAUNCH_BLOCKING=1 python3 main.py \
 --model $model \
---prune_method "snip" \
+--prune_method "refer" \
 --pruning_ratio 0.2 \
 --nsamples 1 \
 --cuda \

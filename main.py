@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--nsamples', type=int, default=128, help='Number of calibration samples.')
 
     parser.add_argument('--pruning_ratio', type=float, default=0, help='Pruning ratio.')
-    parser.add_argument("--prune_method", type=str, default="structured_afr", choices=["refer_svd","snip","structured_snip","structured_refer_svd","structured_afr","afr","structured_afr_llava"])
+    parser.add_argument("--prune_method", type=str, default="structured_afr", choices=["refer","snip","structured_snip","structured_refer","structured_afr","afr","structured_afr_llava"])
     parser.add_argument("--dataset", type=str, default="wikitext2", choices=["wikitext2","mmlu","hellaswag","winogrande","arc_challenge","arc_easy"])
     parser.add_argument("--cache_dir", default="llm_weights", type=str)
 
@@ -86,13 +86,13 @@ def main():
 
     if args.prune_method == "structured_snip":
         structured_snip(args, model, tokenizer, device)
-    elif args.prune_method == "structured_refer_svd":
+    elif args.prune_method == "structured_refer":
         Structured_ReFer_SVD(args, model, tokenizer, device)
     elif args.prune_method == "structured_afr":
         Structured_AFR(args, model, tokenizer, device)
     elif args.prune_method == "structured_afr_llava":
         Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor)
-    elif args.prune_method == "refer_svd":
+    elif args.prune_method == "refer":
         ReFer_SVD(args, model, tokenizer, device)
     elif args.prune_method == "snip":
         model = model.to(torch.float16)
