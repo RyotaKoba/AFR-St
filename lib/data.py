@@ -197,7 +197,6 @@ def get_mmlu(nsamples, seed, seqlen, tokenizer, subjects=None):
     Returns:
         list: List of (input, target) pairs for calibration
     """
-    from datasets import load_dataset
     print("Loading MMLU dataset...")
     
     # MMLUデータセットをロード
@@ -407,7 +406,7 @@ def get_arc(nsamples, seed, seqlen, tokenizer, subset='ARC-Challenge'):
 
 # Function to select the appropriate loader based on dataset name
 def get_loaders(nsamples=128, seed=0, seqlen=2048, tokenizer=None, dataset='wikitext2_local'):
-    if dataset == 'wikitext2_local':
+    if dataset == 'wikitext2':
         return get_wikitext2_local(nsamples, seed, seqlen, tokenizer)
     elif dataset == 'mmlu':
         return get_mmlu(nsamples, seed, seqlen, tokenizer)
