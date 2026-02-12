@@ -102,14 +102,14 @@ python main.py \
 
 **キャリブレーションデータセット:**
 
-| データセット      | 説明                                      |
-| ----------------- | ----------------------------------------- |
-| `wikitext2`     | WikiText-2（HuggingFaceからダウンロード） |
-| `mmlu`          | MMLUベンチマーク（全科目）                |
-| `hellaswag`     | HellaSwag                                 |
-| `winogrande`    | Winogrande XL                             |
-| `arc_challenge` | ARC Challenge                             |
-| `arc_easy`      | ARC Easy                                  |
+| データセット      | 説明                       |
+| ----------------- | -------------------------- |
+| `wikitext2`     | WikiText-2                 |
+| `mmlu`          | MMLUベンチマーク（全科目） |
+| `hellaswag`     | HellaSwag                  |
+| `winogrande`    | Winogrande XL              |
+| `arc_challenge` | ARC Challenge              |
+| `arc_easy`      | ARC Easy                   |
 
 ### 実行例
 
