@@ -7,7 +7,7 @@ CUDA_LAUNCH_BLOCKING=1 python3 main.py \
 --model $model \
 --prune_method "afr" \
 --pruning_ratio 0.2 \
---nsamples 2 \
+--nsamples 1 \
 --cuda \
 --save_model "./pruned_model/hoge" \
 # --global_pruning \
