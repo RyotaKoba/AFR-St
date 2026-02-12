@@ -120,6 +120,20 @@ bash test.sh        # 言語タスク評価
 bash lmms-eval.sh   # マルチモーダルタスク評価（LLaVA）
 ```
 
+## LLaVA用キャリブレーションデータ
+
+LLaVAの枝刈りに使用するキャリブレーションデータはサイズが大きいためGitには含めていません。
+以下のGoogle Driveからダウンロードし、下記の構成で配置してください。
+
+[blip_laion_cc_sbu_558k](https://drive.google.com/file/d/1m3K2r2w5N6FgYhU6x8725uvPXEPnEdar/view?usp=sharing)
+
+```
+data_local/
+└── llava/
+    ├── blip_laion_cc_sbu_558k.json
+    └── images/
+```
+
 ## 保存形式について
 
 - **`--global_pruning` なし**: HuggingFaceの `save_pretrained` 形式で保存。`lm-eval --model hf` でそのまま利用可能
