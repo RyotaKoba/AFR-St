@@ -90,6 +90,11 @@ def snip(args, model, tokenizer, device):
         up_mask = accum_score[k + num_layers] >= threshold
         down_mask = accum_score[k + num_layers * 2] >= threshold
         unstructured_compress(model.model.layers[k], [gate_mask,up_mask,down_mask], device)
+    total, zeros = 0, 0
+    for layer in model.model.layers:
+        for w in [layer.mlp.gate_proj.weight, layer.mlp.up_proj.weight, layer.mlp.down_proj.weight]:
+            zeros += (w == 0).sum().item(); total += w.numel()
+    print(f"[snip] actual sparsity: {zeros/total:.4f}  (target: {args.pruning_ratio:.4f})")
     model.zero_grad()
 
 def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
@@ -240,6 +245,11 @@ def AFR(args, model, tokenizer, device):
         up_mask   = splits[kk + num_layers].reshape(shapes[kk + num_layers]) >= threshold
         down_mask = splits[kk + num_layers * 2].reshape(shapes[kk + num_layers * 2]) >= threshold
         unstructured_compress(model.model.layers[kk], [gate_mask, up_mask, down_mask], device)
+    total, zeros = 0, 0
+    for layer in model.model.layers:
+        for w in [layer.mlp.gate_proj.weight, layer.mlp.up_proj.weight, layer.mlp.down_proj.weight]:
+            zeros += (w == 0).sum().item(); total += w.numel()
+    print(f"[AFR] actual sparsity: {zeros/total:.4f}  (target: {args.pruning_ratio:.4f})")
 
     model.zero_grad()
     P_SVD_loss = torch.zeros(1)
@@ -314,6 +324,11 @@ def ReFer_SVD(args, model, tokenizer, device):
         up_mask   = accum_score[k + num_layers] >= threshold
         down_mask = accum_score[k + num_layers * 2] >= threshold
         unstructured_compress(model.model.layers[k], [gate_mask, up_mask, down_mask], device)
+    total, zeros = 0, 0
+    for layer in model.model.layers:
+        for w in [layer.mlp.gate_proj.weight, layer.mlp.up_proj.weight, layer.mlp.down_proj.weight]:
+            zeros += (w == 0).sum().item(); total += w.numel()
+    print(f"[ReFer_SVD] actual sparsity: {zeros/total:.4f}  (target: {args.pruning_ratio:.4f})")
 
     model.zero_grad()
 
