@@ -176,8 +176,8 @@ def AFR(args, model, tokenizer, device):
 
     hooks = []
     for name, module in model.named_modules():
-        if any(x in name for x in ['gate_proj', 'up_proj', 'down_proj']):
-            hooks.append(module.register_forward_hook(store_feature))
+        # if any(x in name for x in ['gate_proj', 'up_proj', 'down_proj']):
+        hooks.append(module.register_forward_hook(store_feature))
 
     with torch.no_grad():
         fo_accum   = [torch.zeros_like(w).to("cpu") for w in rm_weights]
