@@ -4,3 +4,4 @@
 .config/
 .python_history
 .bash_history
+data_local/llava/
