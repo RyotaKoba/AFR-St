@@ -80,15 +80,15 @@ def snip(args, model, tokenizer, device):
     score = torch.cat([s.view(-1) for s in accum_score])
     print("score: ", score.shape)
 
-    k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
+    k = max(1, int(score.shape[0] * args.pruning_ratio))
     threshold = torch.kthvalue(score, k).values
     score = None
     del score
 
     for k in range(num_layers):
-        gate_mask = accum_score[k] >= threshold
-        up_mask = accum_score[k + num_layers] >= threshold
-        down_mask = accum_score[k + num_layers * 2] >= threshold
+        gate_mask = accum_score[k] > threshold
+        up_mask = accum_score[k + num_layers] > threshold
+        down_mask = accum_score[k + num_layers * 2] > threshold
         unstructured_compress(model.model.layers[k], [gate_mask,up_mask,down_mask], device)
     total, zeros = 0, 0
     for layer in model.model.layers:
@@ -234,16 +234,16 @@ def AFR(args, model, tokenizer, device):
     score = fo_std + snip_std
     del fo_std, snip_std
 
-    k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
+    k = max(1, int(score.shape[0] * args.pruning_ratio))
     threshold = torch.kthvalue(score, k).values
 
     splits = torch.split(score, sizes)
     del score
 
     for kk in range(num_layers):
-        gate_mask = splits[kk].reshape(shapes[kk]) >= threshold
-        up_mask   = splits[kk + num_layers].reshape(shapes[kk + num_layers]) >= threshold
-        down_mask = splits[kk + num_layers * 2].reshape(shapes[kk + num_layers * 2]) >= threshold
+        gate_mask = splits[kk].reshape(shapes[kk]) > threshold
+        up_mask   = splits[kk + num_layers].reshape(shapes[kk + num_layers]) > threshold
+        down_mask = splits[kk + num_layers * 2].reshape(shapes[kk + num_layers * 2]) > threshold
         unstructured_compress(model.model.layers[kk], [gate_mask, up_mask, down_mask], device)
     total, zeros = 0, 0
     for layer in model.model.layers:
@@ -314,15 +314,15 @@ def ReFer_SVD(args, model, tokenizer, device):
     score = torch.cat([s.view(-1) for s in accum_score])
     print("score: ", score.shape)
 
-    k = max(1, int(score.shape[0] * (1 - args.pruning_ratio)))
+    k = max(1, int(score.shape[0] * args.pruning_ratio))
     threshold = torch.kthvalue(score, k).values
     score = None
     del score
 
     for k in range(num_layers):
-        gate_mask = accum_score[k] >= threshold
-        up_mask   = accum_score[k + num_layers] >= threshold
-        down_mask = accum_score[k + num_layers * 2] >= threshold
+        gate_mask = accum_score[k] > threshold
+        up_mask   = accum_score[k + num_layers] > threshold
+        down_mask = accum_score[k + num_layers * 2] > threshold
         unstructured_compress(model.model.layers[k], [gate_mask, up_mask, down_mask], device)
     total, zeros = 0, 0
     for layer in model.model.layers:
