@@ -207,7 +207,6 @@ def simple_evaluate(
             eval_logger.info(
                 f"Initializing {model} model, with arguments: {simple_parse_args_string(model_args)}"
             )
-            eval_logger.info("I'm here!!!!!")
         
             lm = lm_eval.api.registry.get_model(model).create_from_arg_string(
                 model_args,
@@ -217,8 +216,6 @@ def simple_evaluate(
                     "device": device,
                 },
             )
-            eval_logger.info("How?")
-            
     else:
         if not isinstance(model, lm_eval.api.model.LM):
             raise TypeError(

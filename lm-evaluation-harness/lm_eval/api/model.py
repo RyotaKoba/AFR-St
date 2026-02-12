@@ -145,11 +145,9 @@ class LM(abc.ABC):
         Returns:
         - Instance of the LM class.
         """
-        eval_logger.info("Do you see me?")
         additional_config = {} if additional_config is None else additional_config
         args = utils.simple_parse_args_string(arg_string)
         args2 = {k: v for k, v in additional_config.items() if v is not None}
-        eval_logger.info("I see you")
         eval_logger.info(f"args:{args},args2:{args2}")
         # return cls(**args, **args2)
         try:

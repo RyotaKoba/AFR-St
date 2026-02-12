@@ -101,7 +101,6 @@ class Llava(lmms):
         except TypeError:
             # for older versions of LLaVA that don't have multimodal argument
             llava_model_args.pop("multimodal", None)
-            print("HERE!!")
             if pruned is not None:
                 self._model = None
                 checkpoint = torch.load(pruned, map_location='cuda', weights_only=False)
