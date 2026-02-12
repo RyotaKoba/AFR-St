@@ -6,3 +6,4 @@
 .bash_history
 data_local/llava/
 pruned_model/
+llm_weights/
