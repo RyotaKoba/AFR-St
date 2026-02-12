@@ -198,7 +198,7 @@ def AFR(args, model, tokenizer, device):
         fo_grads = list(torch.autograd.grad(P_SVD_loss, rm_weights, retain_graph=True))
         with torch.no_grad():
             for k, (weight, grad) in enumerate(zip(rm_weights, fo_grads)):
-                fo_accum[k] += (weight.cpu() * grad.cpu()).abs().half()
+                fo_accum[k] += (weight.cpu() * grad.cpu()).abs()
         P_SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
         del fo_grads
 
@@ -209,7 +209,7 @@ def AFR(args, model, tokenizer, device):
         snip_grads = list(torch.autograd.grad(loss, rm_weights))
         with torch.no_grad():
             for k, (weight, grad) in enumerate(zip(rm_weights, snip_grads)):
-                snip_accum[k] += (weight.cpu() * grad.cpu()).abs().half()
+                snip_accum[k] += (weight.cpu() * grad.cpu()).abs()
         del snip_grads, outputs, targets, loss
 
     for hook in hooks:
