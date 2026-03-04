@@ -8,11 +8,11 @@ LABEL Description="ML environment with PyTorch, Transformers, and related librar
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 # ENV PYTHONPATH=/usr/local/lib/python3.12/dist-packages:$PYTHONPATH
+ARG USERNAME
+ARG USERID
 
-RUN useradd -ml -u 1001 -s /bin/bash -G sudo ryotakoba && \
-    echo "ryotakoba:password" | chpasswd
-
-
+RUN useradd -ml -u ${USERID} -s /bin/bash -G sudo ${USERNAME} && \
+    echo "${USERNAME}:password" | chpasswd
 
 # システムの依存関係をインストール
 RUN apt-get update && \
@@ -28,23 +28,23 @@ RUN apt-get update && \
 
 # PyTorch with CUDA 13.0 support
 RUN pip3 install --no-cache-dir --break-system-packages\
-    torch \
+    torch==2.9.1 \
     torchvision \
     torchaudio \
     --index-url https://download.pytorch.org/whl/cu130
 
 # Core ML and data processing libraries
 RUN pip3 install --no-cache-dir --break-system-packages\
-    transformers \
-    datasets \
-    tokenizers \
-    safetensors \
+    transformers==4.57.1 \
+    datasets==3.6.0 \
+    tokenizers==0.22.2 \
+    safetensors==0.6.2 \
     timm \
-    accelerate
+    accelerate==1.7.0
 
 # Data manipulation libraries
 RUN pip3 install --no-cache-dir --break-system-packages\
-    numpy \
+    numpy==1.26.4 \
     pandas \
     pyarrow
 
@@ -60,12 +60,13 @@ RUN pip3 install --no-cache-dir --break-system-packages\
     tqdm \
     pyyaml \
     psutil \
-    regex
+    regex \
+    scikit-learn
 
 # CLI tool
 RUN pip3 install --no-cache-dir --break-system-packages clize
 
 # デフォルトのコマンド
 # ユーザーを切り替え
-USER ryotakoba
+USER ${USERNAME}
 CMD ["/bin/bash"]
