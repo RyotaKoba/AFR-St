@@ -254,6 +254,77 @@ def AFR(args, model, tokenizer, device):
     P_SVD_loss = torch.zeros(1)
     del P_SVD_loss
 
+loss = torch.zeros(1)
+def ReFer_L1(args, model,tokenizer, device):
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer)
+    rm_module = rm_modules(model)
+    rm_weights = [module.weight for module, _ in rm_module]
+    del rm_module
+
+    global loss
+    def store_feature(module, input, output):
+        global loss
+        if hasattr(output, 'last_hidden_state'):
+            output = output.last_hidden_state
+        elif hasattr(output, 'hidden_states'):
+            output = output.hidden_states
+        elif isinstance(output, tuple):
+            output = output[0]
+        if output is None:
+            return
+        loss = loss + output.abs().sum()
+
+    hooks = []
+    for name, module in model.named_modules():
+        if any(x in name for x in ['gate_proj', 'up_proj', 'down_proj']):
+            hooks.append(module.register_forward_hook(store_feature))
+    
+    with torch.no_grad():
+        accum_score = [torch.zeros_like(w).to("cpu").half() for w in rm_weights]
+
+    it = iter(dataloader)
+    for i in tqdm(range(args.nsamples), desc="ReFer_L1"):
+        inputs, _ = next(it)
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
+        inputs = inputs.to("cuda:0")
+        _ = model(inputs)
+        grads = list(torch.autograd.grad(loss, rm_weights))
+        with torch.no_grad():
+            for k, (weight, grad) in enumerate(zip(rm_weights, grads)):
+                accum_score[k] += (weight.cpu() * grad.cpu()).abs().half()
+        loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+        del grads
+    del inputs, it, dataloader, rm_weights
+
+    for hook in hooks:
+        hook.remove()
+    model.zero_grad(set_to_none=True)
+    model = model.to(torch.float16)
+    torch.cuda.empty_cache()
+
+    num_layers = len(model.model.layers)
+    score = torch.cat([s.view(-1) for s in accum_score])
+    print("score: ", score.shape)
+
+    k = max(1, int(score.shape[0] * args.pruning_ratio))
+    threshold = torch.kthvalue(score, k).values
+    score = None
+    del score
+
+    for k in range(num_layers):
+        gate_mask = accum_score[k] > threshold
+        up_mask   = accum_score[k + num_layers] > threshold
+        down_mask = accum_score[k + num_layers * 2] > threshold
+        unstructured_compress(model.model.layers[k], [gate_mask, up_mask, down_mask], device)
+    total, zeros = 0, 0
+    for layer in model.model.layers:
+        for w in [layer.mlp.gate_proj.weight, layer.mlp.up_proj.weight, layer.mlp.down_proj.weight]:
+            zeros += (w == 0).sum().item(); total += w.numel()
+    print(f"[ReFer_L1] actual sparsity: {zeros/total:.4f}  (target: {args.pruning_ratio:.4f})")
+
+    model.zero_grad()
+    
 SVD_loss = torch.zeros(1)
 def ReFer_SVD(args, model, tokenizer, device):
     dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
