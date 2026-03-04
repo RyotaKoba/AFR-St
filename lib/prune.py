@@ -921,7 +921,7 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
 
         del snip_grads
 
-###############vision part##################
+    ###############vision part##################
         fo_grads = list(torch.autograd.grad(P_SVD_loss_vision, rm_weights_vision,retain_graph=True))
         for k, grad in enumerate(fo_grads):
             has_inf = torch.isinf(grad).any().item()
