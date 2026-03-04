@@ -50,6 +50,7 @@ DGX Spark上の設定方法です．他の環境でセットアップする際�
 docker build --build-arg USERID=$UID --build-arg USERNAME=$USER -t hoge:hoge .
 ```
 hogeは任意の名前・タグに書き換え
+
 注意：このコマンド及びDockerfileは自身のユーザーがSudoグループに入っていることが前提です．
 
 ### コンテナの作成
@@ -57,8 +58,11 @@ hogeは任意の名前・タグに書き換え
 docker run -it --gpus all -v hoge1:hoge2 -w hoge2 --name test hoge:hoge
 ```
 hoge1：ローカルの任意のパス
+
 hoge2：コンテナ内の任意のパス
+
 hoge：前の手順で作成したイメージ
+
 test：任意のコンテナ名
 
 ### コンテナ内でやる事
