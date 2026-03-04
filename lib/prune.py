@@ -855,7 +855,7 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
 
     num_layers = len(model.model.layers)
     it = iter(dataloader)
-    for i in range(args.nsamples):
+    for i in tqdm(range(args.nsamples), desc="Processing samples"):
         batch = next(it)
         model.zero_grad(set_to_none=True)
         torch.cuda.empty_cache()
