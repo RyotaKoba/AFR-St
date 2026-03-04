@@ -44,7 +44,7 @@ CUDA: 13.0（`nvidia-cuda-runtime 13.0.48`）
 ## インストール
 DGX Spark上の設定方法です．他の環境でセットアップする際は適宜変更を加えて下さい．
 
-# イメージの作成
+### イメージの作成
 リポジトリ内のDockerfileを使用
 ```bash
 docker build --build-arg USERID=$UID --build-arg USERNAME=$USER -t hoge:hoge .
@@ -52,7 +52,7 @@ docker build --build-arg USERID=$UID --build-arg USERNAME=$USER -t hoge:hoge .
 hogeは任意の名前・タグに書き換え
 注意：このコマンド及びDockerfileは自身のユーザーがSudoグループに入っていることが前提です．
 
-# コンテナの作成
+### コンテナの作成
 ```bash
 docker run -it --gpus all -v hoge1:hoge2 -w hoge2 --name test hoge:hoge
 ```
@@ -61,7 +61,7 @@ hoge2：コンテナ内の任意のパス
 hoge：前の手順で作成したイメージ
 test：任意のコンテナ名
 
-# コンテナ内でやる事
+### コンテナ内でやる事
 LLama等のモデルを利用するには認証と認証済みアカウントのトークンを用いたログインが必要です．
 認証及びトークンの発行等は事前に行ってください．そのうえで以下のコマンドを入力し，トークンを使用してログイン．
 ```bash
