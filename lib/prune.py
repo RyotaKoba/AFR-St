@@ -402,6 +402,88 @@ def ReFer_SVD(args, model, tokenizer, device):
 
     model.zero_grad()
 
+loss = torch.zeros(1)
+def Structured_ReFer_L1(args, model,tokenizer, device):
+    dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
+    rm_module = rm_modules(model)
+    rm_weights = [module.weight for module, _ in rm_module]
+    num_layers = len(model.model.layers)
+    
+    global loss
+    def store_feature(module, input, output):
+        global loss
+        if hasattr(output, 'last_hidden_state'):
+            output = output.last_hidden_state
+        elif hasattr(output, 'hidden_states'):
+            output = output.hidden_states
+        elif isinstance(output, tuple):
+            output = output[0]
+        if output is None:
+            return
+
+        loss = loss + output.abs().sum().to("cpu")
+
+    hooks = []
+    for name, module in model.named_modules():
+        hook = module.register_forward_hook(store_feature)
+        hooks.append(hook)
+    
+    L1_score = {}
+
+    it = iter(dataloader)
+    for i in tqdm(range(args.nsamples), desc="Structured_ReFer_L1"):
+        inputs, targets = next(it)
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
+        inputs = inputs.to("cuda:0")
+        outputs = model(inputs)
+
+        if torch.isnan(loss).any().item() or torch.isinf(loss).any().item():
+            print(f"loss contains nan or inf: sample {i}")
+
+        grads = list(torch.autograd.grad(loss, rm_weights))
+        for k, grad in enumerate(grads):
+            if torch.isinf(grad).any().item() or torch.isnan(grad).any().item():
+                print(f"grads[{k}] contains inf or nan")
+        with torch.no_grad():
+            for k in range(num_layers):
+                W_down = rm_weights[k+num_layers*2] * grads[k+num_layers*2]
+                W_up = (rm_weights[k+num_layers] * grads[k+num_layers]).t()
+                W_gate = (rm_weights[k] * grads[k]).t()
+                W_metric = W_down + W_up + W_gate
+                W_metric = W_metric.mean(axis=0).abs()
+                if i == 0 and k == 0:
+                    for m in range(num_layers):
+                        L1_score[m] = torch.zeros_like(W_metric).to("cpu")
+                L1_score[k].add_(W_metric.cpu())
+        loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
+        del grads
+
+    for hook in hooks:
+        hook.remove()
+    model.zero_grad()
+
+    score = torch.stack(list(L1_score.values()), dim=0)
+    print("score contains nan:", torch.isnan(score).any().item())
+    print("score contains inf:", torch.isinf(score).any().item())
+
+    if args.global_pruning:
+        sorted_score, _ = torch.sort(score.view(-1), descending=True)
+        limit = sorted_score[int(sorted_score.shape[0] * (1 - args.pruning_ratio))]
+        thresholds = torch.tensor([limit for _ in range(num_layers)])
+    else:
+        sorted_score, _ = torch.sort(score, descending=True)
+        thresholds = torch.tensor([sorted_score[i][int(sorted_score.shape[1] * (1 - args.pruning_ratio))] for i in range(num_layers)])
+    mlp_mask = (score.t() >= thresholds).t()
+
+    print('*'*30)
+    for idx in range(num_layers):
+        compress(model.model.layers[idx], mlp_mask[idx], device)
+    print('*'*30)
+
+    model.zero_grad()
+    torch.cuda.empty_cache()
+
 SVD_loss = torch.zeros(1)
 def Structured_ReFer_SVD(args, model, tokenizer, device):
     dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)

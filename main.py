@@ -6,7 +6,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from importlib.metadata import version
-from lib.prune import ReFer_SVD, ReFer_L1, snip, AFR, structured_snip, Structured_ReFer_SVD, Structured_AFR, Structured_AFR_LLaVA
+from lib.prune import ReFer_SVD, ReFer_L1, snip, AFR, structured_snip, Structured_ReFer_SVD, Structured_ReFer_L1, Structured_AFR, Structured_AFR_LLaVA
 from lib.builder import load_pretrained_model
 
 print('torch', version('torch'))
@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--nsamples', type=int, default=128, help='Number of calibration samples.')
 
     parser.add_argument('--pruning_ratio', type=float, default=0, help='Pruning ratio.')
-    parser.add_argument("--prune_method", type=str, default="structured_afr", choices=["refer_svd","snip","structured_snip","structured_refer_svd","structured_afr","afr","structured_afr_llava"])
+    parser.add_argument("--prune_method", type=str, default="structured_afr", choices=["refer_svd","snip","structured_snip","structured_refer_svd","structured_refer_l1","structured_afr","afr","structured_afr_llava"])
     parser.add_argument("--dataset", type=str, default="wikitext2", choices=["wikitext2","mmlu","hellaswag","winogrande","arc_challenge","arc_easy"])
     parser.add_argument("--cache_dir", default="llm_weights", type=str)
 
@@ -86,6 +86,8 @@ def main():
 
     if args.prune_method == "structured_snip":
         structured_snip(args, model, tokenizer, device)
+    elif args.prune_method == "structured_refer_l1":
+        Structured_ReFer_L1(args, model, tokenizer, device)
     elif args.prune_method == "structured_refer_svd":
         Structured_ReFer_SVD(args, model, tokenizer, device)
     elif args.prune_method == "structured_afr":
