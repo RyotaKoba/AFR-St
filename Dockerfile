@@ -61,7 +61,9 @@ RUN pip3 install --no-cache-dir --break-system-packages\
     pyyaml \
     psutil \
     regex \
-    scikit-learn
+    scikit-learn \
+    sentencepiece \
+    protobuf 
 
 # CLI tool
 RUN pip3 install --no-cache-dir --break-system-packages clize
