@@ -10,13 +10,15 @@ LLaMAやLLaVAなどのLLMに対して、キャリブレーションデータを�
 
 | 手法                     | 種類     | 説明                                                           |
 | ------------------------ | -------- | -------------------------------------------------------------- |
-| `structured_afr`       | 構造的   | 一次勾配スコア（活性化）とSNIPスコアをグローバル標準化して合算 |
-| `structured_snip`      | 構造的   | SNIP（勾配ベースの重要度スコア）                               |
-| `structured_refer_svd` | 構造的   | ReFer（SVDベースの重要度スコア）                               |
-| `structured_afr_llava` | 構造的   | LLaVAマルチモーダルモデル向けAFR                               |
-| `afr`                  | 非構造的 | AFR（要素ごとのマスク）                                        |
-| `snip`                 | 非構造的 | SNIP（要素ごとのマスク）                                       |
-| `refer_svd`            | 非構造的 | ReFer SVD（要素ごとのマスク）                                  |
+| `structured_afr`       | 構造   | 一次勾配スコア（活性化）とSNIPスコアをグローバル標準化して合算 |
+| `structured_snip`      | 構造   | SNIP（勾配ベースの重要度スコア）                               |
+| `structured_refer_l1` | 構造   | ReFer（L1ベースの重要度スコア）                               |
+| `structured_refer_svd` | 構造   | ReFer（SVDベースの重要度スコア）                               |
+| `structured_afr_llava` | 構造   | LLaVAマルチモーダルモデル向けAFR                               |
+| `afr`                  | 非構造 | AFR（要素ごとのマスク）                                        |
+| `snip`                 | 非構造 | SNIP（要素ごとのマスク）                                       |
+| `refer_svd`            | 非構造 | ReFer SVD（要素ごとのマスク）                                  |
+| `refer_l1`             | 非構造 | ReFer L1 (要素ごとのマスク)                                    |
 
 ## 動作確認済み環境
 
