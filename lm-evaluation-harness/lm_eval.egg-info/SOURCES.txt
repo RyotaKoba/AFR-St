@@ -39,6 +39,7 @@ lm_eval/loggers/wandb_logger.py
 lm_eval/models/__init__.py
 lm_eval/models/anthropic_llms.py
 lm_eval/models/api_models.py
+lm_eval/models/custom_checkpoint.py
 lm_eval/models/dummy.py
 lm_eval/models/gguf.py
 lm_eval/models/hf_steered.py
@@ -4980,7 +4981,6 @@ lm_eval/tasks/headqa/headqa_es.yaml
 lm_eval/tasks/hellaswag/README.md
 lm_eval/tasks/hellaswag/hellaswag.yaml
 lm_eval/tasks/hellaswag/utils.py
-lm_eval/tasks/hellaswag/__pycache__/utils.cpython-312.pyc
 lm_eval/tasks/hendrycks_ethics/README.md
 lm_eval/tasks/hendrycks_ethics/commonsense.yaml
 lm_eval/tasks/hendrycks_ethics/deontology.yaml
