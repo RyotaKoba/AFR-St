@@ -1,0 +1,60 @@
+### Model Configuration
+model_name_or_path: ../pruned_model/Llama3-8B/AFR-St_0.2p_MeanAbs_trimmedGMM2%_global/hf_format
+# .binファイルではなく、ディレクトリを指定
+
+### Dataset Configuration
+dataset: fineweb_edu2
+template: default
+cutoff_len: 1024
+max_steps: 1000
+
+### Training Stage
+stage: pt  # pretrainingの場合はpt、sftではない
+
+### LoRA Configuration
+finetuning_type: lora
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.1
+lora_target: all
+do_train: true
+
+### Training Hyperparameters
+learning_rate: 2.0e-4
+num_train_epochs: 1.0
+packing: false
+preprocessing_num_workers: 1
+dataloader_num_workers: 0
+use_unsloth: True
+
+
+### Batch Configuration
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 32  # 4 * 32 = 128
+dataloader_num_workers: 8
+
+### Optimizer Configuration
+optim: adamw_torch
+lr_scheduler_type: cosine
+warmup_steps: 100
+
+### Logging and Saving
+output_dir: ./checkpoints/LoRA_Llama3_AFR
+logging_steps: 10
+save_steps: 1000
+save_total_limit: 3
+
+### Performance Optimization
+fp16: true
+ddp_find_unused_parameters: false
+dataloader_pin_memory: true
+
+### Special Settings
+remove_unused_columns: false
+
+### Resource Management
+gradient_checkpointing: true  # メモリ節約のためtrueに
+max_grad_norm: 1.0
+
+### Reproducibility
+seed: 42

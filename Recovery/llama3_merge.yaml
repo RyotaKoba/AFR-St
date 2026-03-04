@@ -1,0 +1,9 @@
+### model
+model_name_or_path: ../snip-refer_to_llm/pruned_model/Vicuna-13B_AFR-St_0.2p_Mean_toplow2perdel  # 使用するベースモデル
+adapter_name_or_path: ./checkpoints/recovery_vicuna_afr_0.2p_Mean_toplow2perdel
+
+### export
+export_dir: output/vicuna_0.2p_Mean_toplow2perdel
+export_size: 5
+export_device: cpu
+export_legacy_format: false
