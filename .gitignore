@@ -9,4 +9,4 @@ pruned_model/
 llm_weights/
 __pycache__/
 *.pyc
-*.egg-info/
+*/*.egg-info/
