@@ -881,6 +881,7 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
 
         P_SVD_loss_vision = torch.zeros(1)
         del fo_grads
+        #LLaVAのビジョン部分では正解ラベルが存在しないため勾配計算が難しく，SNIPは暫定的に除外
         # outputs = outputs.logits
         # target_len = targets.shape[1]
         # outputs = outputs[:, -target_len:, :]
