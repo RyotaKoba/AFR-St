@@ -4,11 +4,7 @@ from .data import get_loaders, get_mm_loaders
 from tqdm import tqdm
 import sys
 from .model import rm_modules, get_vision_rm_modules
-from .gmm import gmm_edge_outlier_removal, select_K_by_bic
-from .gesd import gesd_outlier_cleaning_torch
-from .kde import kde_edge_outlier_removal
-from .dpm import dpm_edge_outlier_removal
-from .bmm import bmm_edge_outlier_removal
+from .tools import calculate_neuron_score, weight_wise_to_neuron_wise
 
 def unstructured_compress(layer, weight_mask, device):
     gate_mask, up_mask, down_mask = [m.to(device) for m in weight_mask]
@@ -123,7 +119,8 @@ def structured_snip(args, model, tokenizer, device=torch.device("cuda:0")):
                 W_up = (rm_weights[k+num_layers] * grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = W_metric.mean(axis=0).abs()
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 if i == 0 and k == 0:
                     for m in range(num_layers):
                         snip_score[m] = torch.zeros_like(W_metric)
@@ -451,7 +448,8 @@ def Structured_ReFer_L1(args, model,tokenizer, device):
                 W_up = (rm_weights[k+num_layers] * grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = W_metric.mean(axis=0).abs()
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 if i == 0 and k == 0:
                     for m in range(num_layers):
                         L1_score[m] = torch.zeros_like(W_metric).to("cpu")
@@ -538,7 +536,8 @@ def Structured_ReFer_SVD(args, model, tokenizer, device):
                 W_up = (rm_weights[k+num_layers] * grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = W_metric.mean(axis=0).abs()
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 if i == 0 and k == 0:
                     for m in range(num_layers):
                         svd_score[m] = torch.zeros_like(W_metric).to("cpu")
@@ -573,50 +572,6 @@ def Structured_ReFer_SVD(args, model, tokenizer, device):
 
 def Structured_AFR(args, model, tokenizer, device):
     dataloader = get_loaders(nsamples=args.nsamples,seed=args.seed,seqlen=model.seqlen,tokenizer=tokenizer, dataset=args.dataset)
-
-    def calculate_neuron_score(W_metric):
-        # ============================================================
-        # Method 1: Trim x%
-        # ============================================================
-        trim_percent = 2
-        sorted_W, _ = torch.sort(W_metric, dim=0)
-        n_rows = W_metric.shape[0]
-        trim_count = int(n_rows * trim_percent / 100)
-        cleaned_scores = sorted_W[trim_count:-trim_count, :]
-
-        # ============================================================
-        # Method 2: GMM Trim
-        # ============================================================
-        # cleaned_scores, _, _= gmm_edge_outlier_removal(W_metric, K=3, alpha_edge=0.05,q_tail=0.02, use_density=True, check_bic=True, K_range=(1, 5)))
-
-        # ===========================================================
-        # Method 3: KDE Trim
-        # ===========================================================
-        # cleaned_scores = kde_edge_outlier_removal(W_metric)
-
-        # ============================================================
-        # Method 4: GESD Trim
-        # ============================================================
-        # cleaned_scores = gesd_outlier_cleaning_torch(W_metric)
-
-        # ===========================================================
-        # Method 5: DPM Trim
-        # ===========================================================
-        # cleaned_scores = dpm_edge_outlier_removal(W_metric)
-
-        # ===========================================================
-        # Method 6: BMM Trim
-        # ===========================================================
-        # cleaned_scores = bmm_edge_outlier_removal(W_metric)
-
-        return weight_wise_to_neuron_wise(cleaned_scores)
-
-    def weight_wise_to_neuron_wise(scores):
-        # ===========================================================
-        # Method 1: MeanAbs
-        # ==========================================================~
-        mean_scores = scores.mean(axis=0)
-        return torch.abs(mean_scores)
 
     global P_SVD_loss
     P_SVD_loss = torch.zeros(1, requires_grad=True, dtype=torch.float32).to("cpu")
@@ -677,7 +632,8 @@ def Structured_AFR(args, model, tokenizer, device):
                 W_up = (rm_weights[k+num_layers] * fo_grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * fo_grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = calculate_neuron_score(W_metric)
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 if i == 0 and k == 0:
                     print("Initial Setting")
                     for m in range(num_layers):
@@ -707,7 +663,8 @@ def Structured_AFR(args, model, tokenizer, device):
                 W_up = (rm_weights[k+num_layers] * snip_grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * snip_grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = calculate_neuron_score(W_metric)
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 snip_score[k].add_(W_metric)
         del snip_grads
 
@@ -745,28 +702,6 @@ def Structured_AFR(args, model, tokenizer, device):
 
 def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
     dataloader = get_mm_loaders()
-
-    def calculate_neuron_score(W_metric):
-        # ============================================================
-        # Method 1: Trim x%
-        # ============================================================
-        trim_percent = 2
-        sorted_W, _ = torch.sort(W_metric, dim=0)
-        n_rows = W_metric.shape[0]
-        trim_count = int(n_rows * trim_percent / 100)
-        cleaned_scores = sorted_W[trim_count:-trim_count, :]
-
-        # ============================================================
-        # Method 2: GMM Trim
-        # ============================================================
-        # cleaned_scores, _, _= gmm_edge_outlier_removal(W_metric, K=3, alpha_edge=0.05,q_tail=0.02, use_density=True, check_bic=True, K_range=(1, 5)))
-
-        # ===========================================================
-        # Method 3: KDE Trim
-        # ===========================================================
-        # cleaned_scores = kde_edge_outlier_removal(W_metric)
-
-        return weight_wise_to_neuron_wise(cleaned_scores)
 
     def weight_wise_to_neuron_wise(scores):
         # ===========================================================
@@ -888,7 +823,8 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
                 W_up = (rm_weights[k+num_layers] * fo_grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * fo_grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = calculate_neuron_score(W_metric)
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 if i == 0 and k == 0:
                     print("Initial Setting")
                     for m in range(num_layers):
@@ -916,7 +852,8 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
                 W_up = (rm_weights[k+num_layers] * snip_grads[k+num_layers]).t()
                 W_gate = (rm_weights[k] * snip_grads[k]).t()
                 W_metric = W_down + W_up + W_gate
-                W_metric = calculate_neuron_score(W_metric)
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 snip_score[k].add_(W_metric)
 
         del snip_grads
@@ -933,7 +870,8 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
                 W_fc2 = (rm_weights_vision[k*2+1] * fo_grads[k*2+1])
                 W_fc1 = (rm_weights_vision[k*2] * fo_grads[k*2]).t()
                 W_metric = W_fc2 + W_fc1
-                W_metric = calculate_neuron_score(W_metric)
+                W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+                W_metric = weight_wise_to_neuron_wise(W_metric)
                 if i == 0 and k == 0:
                     print("Initial Setting")
                     for m in range(len(vision_model.vision_model.encoder.layers)):
@@ -964,7 +902,8 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
         #         W_fc2 = (rm_weights_vision[k*2+1] * snip_grads[k*2+1])
         #         W_fc1 = (rm_weights_vision[k*2] * snip_grads[k*2]).t()
         #         W_metric = W_fc2 + W_fc1
-        #         W_metric = calculate_neuron_score(W_metric)
+        #         W_metric = calculate_neuron_score(args.outlier_method, W_metric)
+        #         W_metric = weight_wise_to_neuron_wise(W_metric)
         #         W_metric = W_metric.mean(axis=0)
         #         # snip_sign_vision[k].add_(torch.sign(W_metric))
         #         W_metric = torch.abs(W_metric)
