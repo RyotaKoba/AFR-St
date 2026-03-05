@@ -97,9 +97,11 @@ sudo pip install --break-system-packages -e ./lmms-eval
 │   ├── gmm.py           # 混合ガウスモデルによるスコア処理
 │   ├── kde.py           # カーネル密度推定によるスコア処理
 │   └── gesd.py          # GESDによる外れ値除去
+├── Recovery/            # 枝刈り済みモデルのLoRAチューニング用
 └── data_local/          # ローカルデータセット
 
 ```
+LoRAチューニング用のコードはDGX Sparkでは動作未検証
 
 ## 使い方
 
