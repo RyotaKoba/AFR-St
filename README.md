@@ -88,6 +88,7 @@ sudo pip install --break-system-packages -e ./lmms-eval
 ├── lmms-eval.sh         # LLaVAマルチモーダル評価スクリプト
 ├── lib/
 │   ├── prune.py         # 全枝刈り手法の実装
+│   ├── tools.py         # 外れ値処理・スコア集約
 │   ├── data.py          # データセットローダー
 │   ├── builder.py       # モデルローダー（LLaVA対応）
 │   ├── model.py         # モデル操作ユーティリティ（層削除など）
@@ -112,6 +113,7 @@ python main.py \
   --nsamples <キャリブレーションサンプル数> \
   --dataset <キャリブレーションデータセット> \
   --cuda \
+  --outlier_method "percentile" \
   --save_model <保存先パス>
 ```
 
@@ -124,7 +126,8 @@ python main.py \
 | `--pruning_ratio`  | `0.0`            | 枝刈り率（例:`0.2` = 20%）               |
 | `--nsamples`       | `128`            | キャリブレーションサンプル数               |
 | `--seed`           | `0`              | ランダムシード                             |
-| `--dataset`        | `wikitext2`      | キャリブレーションデータセット             |
+| `--dataset`        | `wikitext2`      | キャリブレーションデータセット（下表参照）     |
+| `--outlier_method` | `None`           | 外れ値処理の方法（下表参照）                         |
 | `--cuda`           | `False`          | GPU使用フラグ                              |
 | `--global_pruning` | `False`          | 全レイヤーをまたいだグローバル枝刈りフラグ |
 | `--save_model`     | `None`           | 枝刈り後モデルの保存先パス                 |
@@ -140,6 +143,17 @@ python main.py \
 | `winogrande`    | Winogrande XL              |
 | `arc_challenge` | ARC Challenge              |
 | `arc_easy`      | ARC Easy                   |
+
+**外れ値処理の方法:**
+
+| データセット      | 説明                       |
+| ----------------- | -------------------------- |
+| `percentile`     | trimme percentile                 |
+| `gmm`            | GMM-based                         |
+| `kde`            | Fast 1D KDE using FFT convolution |
+| `bmm`            | Bayesian Mixture Model-based      |
+| `gesd`           | GESD Test                         |
+| `dpm`            | Dirichlet Process Mixture-based   |
 
 ### 実行例
 
