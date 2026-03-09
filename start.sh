@@ -12,4 +12,5 @@ CUDA_LAUNCH_BLOCKING=1 python3 main.py \
 --save_model "./pruned_model/hoge" \
 --global_pruning \
 --outlier_method "percentile" \
+--power 2.7 \
 # --dataset "wikitext" \

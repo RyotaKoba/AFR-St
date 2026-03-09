@@ -55,6 +55,7 @@ def main():
     parser.add_argument('--model', type=str, help='LLaMA model')    # Huggingface model name
     parser.add_argument('--seed', type=int, default=0, help='Seed for sampling the calibration data.')
     parser.add_argument('--nsamples', type=int, default=128, help='Number of calibration samples.')
+    parser.add_argument('--power', type=float, default=1.0, help='The exponent for the AFR score.')
 
     parser.add_argument('--pruning_ratio', type=float, default=0, help='Pruning ratio.')
     parser.add_argument("--prune_method", type=str, default="structured_afr", choices=["refer_svd","snip","structured_snip","structured_refer_svd","structured_refer_l1","structured_afr","afr","structured_afr_llava"])

@@ -673,8 +673,9 @@ def Structured_AFR(args, model, tokenizer, device):
     P_SVD_loss = torch.zeros(1)
     del P_SVD_loss
     model.zero_grad()
+    print(f"Applying power {power} to scores")
     for i in range(num_layers):
-        snip_score[i] = snip_score[i]*snip_score[i]
+        snip_score[i] = snip_score[i] ** args.power
 
     fo_score = torch.stack(list(fo_score.values()), dim=0)
     snip_score = torch.stack(list(snip_score.values()), dim=0)
@@ -921,7 +922,7 @@ def Structured_AFR_LLaVA(args, model, tokenizer, device, image_processor):
     del P_SVD_loss, P_SVD_loss_vision
     model.zero_grad()
     for i in range(num_layers):
-        snip_score[i] = snip_score[i]*snip_score[i]
+        snip_score[i] = snip_score[i] ** args.power
 
     fo_score = torch.stack(list(fo_score.values()), dim=0)
     snip_score = torch.stack(list(snip_score.values()), dim=0)
