@@ -9,3 +9,4 @@ pruned_model/
 llm_weights/
 __pycache__/
 *.pyc
+lm-evaluation-harness/lm_eval.egg-info/SOURCES.txt
