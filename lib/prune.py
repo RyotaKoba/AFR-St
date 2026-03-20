@@ -673,7 +673,7 @@ def Structured_AFR(args, model, tokenizer, device):
     P_SVD_loss = torch.zeros(1)
     del P_SVD_loss
     model.zero_grad()
-    print(f"Applying power {power} to scores")
+    print(f"Applying power {args.power} to scores")
     for i in range(num_layers):
         snip_score[i] = snip_score[i] ** args.power
 
