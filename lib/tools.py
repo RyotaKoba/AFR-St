@@ -7,7 +7,7 @@ from .bmm import bmm_edge_outlier_removal
 
 def calculate_neuron_score(method ,W_metric):
     if method is None:
-        return W_metruc
+        return W_metric
     elif method == "percentile":
         # Method 1: Trim x%
         trim_percent = 2
